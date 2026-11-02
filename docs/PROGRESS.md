@@ -28,7 +28,7 @@ Contas e sessões; workspace automático; projetos (CRUD, arquivamento, modo dem
 
 - Chamadas reais à Anthropic/OpenAI: adaptadores implementados e testados contra respostas HTTP simuladas dos SDKs oficiais; **não foram feitas chamadas reais** (não havia chaves).
 - Upload de documentos: requer S3/MinIO (`S3_*`). Rota implementada; não exercitada aqui (sem MinIO no container).
-- Publicação no GitHub: o repositório `ai-office` não existe e o token do `gh` no container é inválido (ver relatório final).
+- Publicação no GitHub: ✅ concluída em https://github.com/MarlonFer77/ai-office (privado). CI no GitHub Actions aprovado no primeiro push (format, lint, build, typecheck, testes, migração + seed, e2e).
 
 ## Problemas conhecidos / pendências
 
@@ -40,4 +40,4 @@ Contas e sessões; workspace automático; projetos (CRUD, arquivamento, modo dem
 
 ## Próxima tarefa concreta
 
-Criar o repositório privado `ai-office` no GitHub (ou conceder permissão) e executar `git push -u origin main`; em seguida, verificar o workflow de CI no GitHub Actions.
+Fazer a primeira execução em modo real: configurar uma chave Anthropic/OpenAI em Configurações → Provedores, verificar a conexão e rodar uma missão curta num projeto em modo real com limite de gasto baixo. Em seguida, instrumentar OpenTelemetry na API e no worker.
