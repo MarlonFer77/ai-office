@@ -65,6 +65,7 @@ export function computeCost(
       .sort((a, b) => b.model.length - a.model.length)[0];
   if (!price) return { costUsd: null, priceSource: null };
   const cost =
-    (usage.inputTokens * price.inputPerMTokUsd + usage.outputTokens * price.outputPerMTokUsd) / 1_000_000;
+    (usage.inputTokens * price.inputPerMTokUsd + usage.outputTokens * price.outputPerMTokUsd) /
+    1_000_000;
   return { costUsd: Math.round(cost * 1e6) / 1e6, priceSource: price.source };
 }

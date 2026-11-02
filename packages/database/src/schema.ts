@@ -28,7 +28,10 @@ import {
   TASK_STATUSES,
 } from '@ai-office/shared';
 
-const id = () => text('id').primaryKey().$defaultFn(() => randomUUID());
+const id = () =>
+  text('id')
+    .primaryKey()
+    .$defaultFn(() => randomUUID());
 const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
 const updatedAt = () =>
   timestamp('updated_at', { withTimezone: true })
@@ -198,7 +201,10 @@ export const agents = pgTable(
     systemPrompt: text('system_prompt').notNull().default(''),
     avatarSeed: integer('avatar_seed').notNull().default(0),
     status: agentStatus('status').notNull().default('idle'),
-    permissions: text('permissions').array().notNull().default(sql`'{}'::text[]`),
+    permissions: text('permissions')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     budgetLimitUsd: money('budget_limit_usd'),
     maxOutputTokens: integer('max_output_tokens').notNull().default(4000),
     paused: boolean('paused').notNull().default(false),
@@ -293,7 +299,9 @@ export const tasks = pgTable(
     title: text('title').notNull(),
     instruction: text('instruction').notNull(),
     role: agentRole('role').notNull(),
-    assignedAgentId: text('assigned_agent_id').references(() => agents.id, { onDelete: 'set null' }),
+    assignedAgentId: text('assigned_agent_id').references(() => agents.id, {
+      onDelete: 'set null',
+    }),
     status: taskStatus('status').notNull().default('pending'),
     priority: integer('priority').notNull().default(5),
     requiresApproval: boolean('requires_approval').notNull().default(false),
@@ -324,7 +332,10 @@ export const taskDependencies = pgTable(
       .notNull()
       .references(() => tasks.id, { onDelete: 'cascade' }),
   },
-  (t) => [primaryKey({ columns: [t.taskId, t.dependsOnTaskId] }), index('td_dep_idx').on(t.dependsOnTaskId)],
+  (t) => [
+    primaryKey({ columns: [t.taskId, t.dependsOnTaskId] }),
+    index('td_dep_idx').on(t.dependsOnTaskId),
+  ],
 );
 
 export const agentRuns = pgTable(
@@ -374,12 +385,18 @@ export const handoffs = pgTable(
     toAgentId: text('to_agent_id').references(() => agents.id, { onDelete: 'set null' }),
     instruction: text('instruction').notNull(),
     contextSummary: text('context_summary').notNull(),
-    artifactIds: text('artifact_ids').array().notNull().default(sql`'{}'::text[]`),
+    artifactIds: text('artifact_ids')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     status: handoffStatus('status').notNull().default('pending'),
     completedAt: timestamp('completed_at', { withTimezone: true }),
     createdAt: createdAt(),
   },
-  (t) => [index('handoffs_project_idx').on(t.projectId), index('handoffs_target_idx').on(t.targetTaskId)],
+  (t) => [
+    index('handoffs_project_idx').on(t.projectId),
+    index('handoffs_target_idx').on(t.targetTaskId),
+  ],
 );
 
 /* ------------------------------------------------------------------ */
@@ -443,7 +460,9 @@ export const approvals = pgTable(
     status: approvalStatus('status').notNull().default('pending'),
     title: text('title').notNull(),
     details: text('details').notNull().default(''),
-    requestedByAgentId: text('requested_by_agent_id').references(() => agents.id, { onDelete: 'set null' }),
+    requestedByAgentId: text('requested_by_agent_id').references(() => agents.id, {
+      onDelete: 'set null',
+    }),
     resolvedBy: text('resolved_by').references(() => users.id, { onDelete: 'set null' }),
     note: text('note'),
     resolvedAt: timestamp('resolved_at', { withTimezone: true }),

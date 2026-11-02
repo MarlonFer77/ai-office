@@ -56,19 +56,20 @@ export type OfficeEvent = z.infer<typeof officeEventSchema>;
 
 export type NewOfficeEvent = Omit<OfficeEvent, 'id' | 'createdAt'>;
 
-export const EVENT_SEVERITY: Partial<Record<EventType, 'info' | 'success' | 'warning' | 'error'>> = {
-  'task.completed': 'success',
-  'mission.completed': 'success',
-  'handoff.completed': 'success',
-  'artifact.created': 'success',
-  'task.failed': 'error',
-  'agent.error': 'error',
-  'mission.failed': 'error',
-  'budget.exceeded': 'error',
-  'budget.warning': 'warning',
-  'approval.requested': 'warning',
-  'task.retrying': 'warning',
-};
+export const EVENT_SEVERITY: Partial<Record<EventType, 'info' | 'success' | 'warning' | 'error'>> =
+  {
+    'task.completed': 'success',
+    'mission.completed': 'success',
+    'handoff.completed': 'success',
+    'artifact.created': 'success',
+    'task.failed': 'error',
+    'agent.error': 'error',
+    'mission.failed': 'error',
+    'budget.exceeded': 'error',
+    'budget.warning': 'warning',
+    'approval.requested': 'warning',
+    'task.retrying': 'warning',
+  };
 
 /** Redis pub/sub channel for a project's live events. */
 export const projectChannel = (projectId: string) => `ai-office:events:${projectId}`;

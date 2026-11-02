@@ -1,7 +1,14 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { auditLogs, modelPrices, orm, providerConfigs } from '@ai-office/database';
-import { createAdapter, DEFAULT_MODEL_PRICES, encryptSecret, decryptSecret, keyHint, SUGGESTED_MODELS } from '@ai-office/agents';
+import {
+  createAdapter,
+  DEFAULT_MODEL_PRICES,
+  encryptSecret,
+  decryptSecret,
+  keyHint,
+  SUGGESTED_MODELS,
+} from '@ai-office/agents';
 import { modelPriceSchema, providerConfigSchema } from '@ai-office/shared';
 import { audit } from '@ai-office/orchestrator';
 import { type AppDeps, HttpError } from '../app.js';
@@ -9,7 +16,10 @@ import { type AppDeps, HttpError } from '../app.js';
 const { and, eq, desc } = orm;
 
 /** Public shape — the encrypted key never leaves the server. */
-function toPublic(cfg: typeof providerConfigs.$inferSelect | undefined, provider: 'anthropic' | 'openai') {
+function toPublic(
+  cfg: typeof providerConfigs.$inferSelect | undefined,
+  provider: 'anthropic' | 'openai',
+) {
   return {
     provider,
     configured: Boolean(cfg?.encryptedApiKey),
@@ -27,12 +37,19 @@ function toPublic(cfg: typeof providerConfigs.$inferSelect | undefined, provider
 
 export async function settingsRoutes(app: FastifyInstance, deps: AppDeps) {
   const getCfg = (workspaceId: string, provider: 'anthropic' | 'openai') =>
-    deps.db.query.providerConfigs.findFirst({ where: and(eq(providerConfigs.workspaceId, workspaceId), eq(providerConfigs.provider, provider)) });
-  const providerParam = (p: unknown) => z.object({ provider: z.enum(['anthropic', 'openai']) }).parse(p).provider;
+    deps.db.query.providerConfigs.findFirst({
+      where: and(
+        eq(providerConfigs.workspaceId, workspaceId),
+        eq(providerConfigs.provider, provider),
+      ),
+    });
+  const providerParam = (p: unknown) =>
+    z.object({ provider: z.enum(['anthropic', 'openai']) }).parse(p).provider;
 
   app.get('/providers', async (req) => {
     const out = [];
-    for (const p of ['anthropic', 'openai'] as const) out.push(toPublic(await getCfg(req.workspaceId!, p), p));
+    for (const p of ['anthropic', 'openai'] as const)
+      out.push(toPublic(await getCfg(req.workspaceId!, p), p));
     return out;
   });
 
@@ -46,45 +63,86 @@ export async function settingsRoutes(app: FastifyInstance, deps: AppDeps) {
       enabled: input.enabled,
       ...(input.defaultModel !== undefined ? { defaultModel: input.defaultModel } : {}),
       ...(input.monthlyBudgetUsd !== undefined ? { monthlyBudgetUsd: input.monthlyBudgetUsd } : {}),
-      ...(input.apiKey ? { encryptedApiKey: encryptSecret(input.apiKey, deps.env.ENCRYPTION_KEY), keyHint: keyHint(input.apiKey), lastCheckOk: null, lastCheckError: null } : {}),
+      ...(input.apiKey
+        ? {
+            encryptedApiKey: encryptSecret(input.apiKey, deps.env.ENCRYPTION_KEY),
+            keyHint: keyHint(input.apiKey),
+            lastCheckOk: null,
+            lastCheckError: null,
+          }
+        : {}),
     };
     const [row] = existing
-      ? await deps.db.update(providerConfigs).set(values).where(eq(providerConfigs.id, existing.id)).returning()
+      ? await deps.db
+          .update(providerConfigs)
+          .set(values)
+          .where(eq(providerConfigs.id, existing.id))
+          .returning()
       : await deps.db.insert(providerConfigs).values(values).returning();
-    await audit(deps.db, { workspaceId: req.workspaceId!, userId: req.user!.id, action: input.apiKey ? 'provider.credentials.update' : 'provider.update', resourceType: 'provider_config', resourceId: row!.id, metadata: { provider, enabled: input.enabled }, ip: req.ip });
+    await audit(deps.db, {
+      workspaceId: req.workspaceId!,
+      userId: req.user!.id,
+      action: input.apiKey ? 'provider.credentials.update' : 'provider.update',
+      resourceType: 'provider_config',
+      resourceId: row!.id,
+      metadata: { provider, enabled: input.enabled },
+      ip: req.ip,
+    });
     return toPublic(row, provider);
   });
 
   app.delete('/providers/:provider', async (req) => {
     const provider = providerParam(req.params);
     const existing = await getCfg(req.workspaceId!, provider);
-    if (existing) await deps.db.update(providerConfigs).set({ encryptedApiKey: null, keyHint: null, enabled: false, availableModels: [] }).where(eq(providerConfigs.id, existing.id));
-    await audit(deps.db, { workspaceId: req.workspaceId!, userId: req.user!.id, action: 'provider.credentials.delete', resourceType: 'provider_config', resourceId: existing?.id ?? null, metadata: { provider }, ip: req.ip });
+    if (existing)
+      await deps.db
+        .update(providerConfigs)
+        .set({ encryptedApiKey: null, keyHint: null, enabled: false, availableModels: [] })
+        .where(eq(providerConfigs.id, existing.id));
+    await audit(deps.db, {
+      workspaceId: req.workspaceId!,
+      userId: req.user!.id,
+      action: 'provider.credentials.delete',
+      resourceType: 'provider_config',
+      resourceId: existing?.id ?? null,
+      metadata: { provider },
+      ip: req.ip,
+    });
     return { ok: true };
   });
 
   /** Real connectivity check: lists models with the stored key. */
-  app.post('/providers/:provider/verify', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (req) => {
-    const provider = providerParam(req.params);
-    const cfg = await getCfg(req.workspaceId!, provider);
-    if (!cfg?.encryptedApiKey) throw new HttpError(400, 'Informe a chave de API antes de verificar.');
-    const adapter = createAdapter({ provider, apiKey: decryptSecret(cfg.encryptedApiKey, deps.env.ENCRYPTION_KEY) });
-    const result = await adapter.verify();
-    const [row] = await deps.db
-      .update(providerConfigs)
-      .set({
-        lastCheckedAt: new Date(),
-        lastCheckOk: result.ok,
-        lastCheckError: result.ok ? null : result.error.slice(0, 500),
-        ...(result.ok ? { availableModels: result.models.map((m) => m.id).slice(0, 500) } : {}),
-      })
-      .where(eq(providerConfigs.id, cfg.id))
-      .returning();
-    return toPublic(row, provider);
-  });
+  app.post(
+    '/providers/:provider/verify',
+    { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (req) => {
+      const provider = providerParam(req.params);
+      const cfg = await getCfg(req.workspaceId!, provider);
+      if (!cfg?.encryptedApiKey)
+        throw new HttpError(400, 'Informe a chave de API antes de verificar.');
+      const adapter = createAdapter({
+        provider,
+        apiKey: decryptSecret(cfg.encryptedApiKey, deps.env.ENCRYPTION_KEY),
+      });
+      const result = await adapter.verify();
+      const [row] = await deps.db
+        .update(providerConfigs)
+        .set({
+          lastCheckedAt: new Date(),
+          lastCheckOk: result.ok,
+          lastCheckError: result.ok ? null : result.error.slice(0, 500),
+          ...(result.ok ? { availableModels: result.models.map((m) => m.id).slice(0, 500) } : {}),
+        })
+        .where(eq(providerConfigs.id, cfg.id))
+        .returning();
+      return toPublic(row, provider);
+    },
+  );
 
   app.get('/prices', async (req) => {
-    const overrides = await deps.db.query.modelPrices.findMany({ where: eq(modelPrices.workspaceId, req.workspaceId!) });
+    const overrides = await deps.db.query.modelPrices.findMany({
+      where: eq(modelPrices.workspaceId, req.workspaceId!),
+    });
     return { defaults: DEFAULT_MODEL_PRICES, overrides };
   });
 
@@ -93,19 +151,40 @@ export async function settingsRoutes(app: FastifyInstance, deps: AppDeps) {
     const [row] = await deps.db
       .insert(modelPrices)
       .values({ ...input, workspaceId: req.workspaceId! })
-      .onConflictDoUpdate({ target: [modelPrices.workspaceId, modelPrices.provider, modelPrices.model], set: { inputPerMTokUsd: input.inputPerMTokUsd, outputPerMTokUsd: input.outputPerMTokUsd, source: input.source } })
+      .onConflictDoUpdate({
+        target: [modelPrices.workspaceId, modelPrices.provider, modelPrices.model],
+        set: {
+          inputPerMTokUsd: input.inputPerMTokUsd,
+          outputPerMTokUsd: input.outputPerMTokUsd,
+          source: input.source,
+        },
+      })
       .returning();
-    await audit(deps.db, { workspaceId: req.workspaceId!, userId: req.user!.id, action: 'price.upsert', resourceType: 'model_price', resourceId: row!.id, metadata: { provider: input.provider, model: input.model }, ip: req.ip });
+    await audit(deps.db, {
+      workspaceId: req.workspaceId!,
+      userId: req.user!.id,
+      action: 'price.upsert',
+      resourceType: 'model_price',
+      resourceId: row!.id,
+      metadata: { provider: input.provider, model: input.model },
+      ip: req.ip,
+    });
     return row;
   });
 
   app.delete('/prices/:id', async (req) => {
     const id = z.object({ id: z.string().max(64) }).parse(req.params).id;
-    await deps.db.delete(modelPrices).where(and(eq(modelPrices.id, id), eq(modelPrices.workspaceId, req.workspaceId!)));
+    await deps.db
+      .delete(modelPrices)
+      .where(and(eq(modelPrices.id, id), eq(modelPrices.workspaceId, req.workspaceId!)));
     return { ok: true };
   });
 
   app.get('/audit-logs', async (req) => {
-    return deps.db.query.auditLogs.findMany({ where: eq(auditLogs.workspaceId, req.workspaceId!), orderBy: desc(auditLogs.createdAt), limit: 200 });
+    return deps.db.query.auditLogs.findMany({
+      where: eq(auditLogs.workspaceId, req.workspaceId!),
+      orderBy: desc(auditLogs.createdAt),
+      limit: 200,
+    });
   });
 }

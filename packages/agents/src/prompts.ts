@@ -8,7 +8,8 @@ import { ROLE_LABEL } from './providers/demo.js';
 
 const ROLE_GUIDANCE: Record<AgentRole, string> = {
   strategist: 'Você planeja, define objetivos, arquitetura e organiza o trabalho da equipe.',
-  researcher: 'Você pesquisa, levanta informações e analisa documentos disponíveis, citando incertezas.',
+  researcher:
+    'Você pesquisa, levanta informações e analisa documentos disponíveis, citando incertezas.',
   developer: 'Você produz conteúdo técnico e código com qualidade, explicando decisões.',
   creative: 'Você cria conceitos, textos, campanhas e direção visual.',
   reviewer: 'Você valida entregas, identifica problemas, riscos e inconsistências.',
@@ -23,7 +24,11 @@ const SAFETY = [
 ].join('\n');
 
 /** System prompt for an agent. The [role:x] tag lets the demo provider pick a template. */
-export function buildSystemPrompt(agent: { name: string; role: AgentRole; systemPrompt: string }): string {
+export function buildSystemPrompt(agent: {
+  name: string;
+  role: AgentRole;
+  systemPrompt: string;
+}): string {
   return [
     `[role:${agent.role}] Você é ${agent.name}, agente de ${ROLE_LABEL[agent.role]} no escritório virtual AI Office.`,
     ROLE_GUIDANCE[agent.role],
@@ -108,18 +113,47 @@ export function validatePlanGraph(plan: MissionPlan, availableRoles: AgentRole[]
 export function buildDemoPlan(goal: string, availableRoles: AgentRole[]): MissionPlan {
   const has = (r: AgentRole) => availableRoles.includes(r);
   const tasks: MissionPlan['tasks'] = [];
-  const add = (t: Omit<MissionPlan['tasks'][number], 'priority' | 'requiresApproval'> & { requiresApproval?: boolean }) =>
-    tasks.push({ priority: 5, requiresApproval: false, ...t });
+  const add = (
+    t: Omit<MissionPlan['tasks'][number], 'priority' | 'requiresApproval'> & {
+      requiresApproval?: boolean;
+    },
+  ) => tasks.push({ priority: 5, requiresApproval: false, ...t });
   const lead: AgentRole = has('strategist') ? 'strategist' : availableRoles[0]!;
-  add({ key: 'plan', title: 'Definir estratégia', instruction: `Defina a estratégia para: ${goal}`, role: lead, dependsOn: [] });
+  add({
+    key: 'plan',
+    title: 'Definir estratégia',
+    instruction: `Defina a estratégia para: ${goal}`,
+    role: lead,
+    dependsOn: [],
+  });
   if (has('researcher'))
-    add({ key: 'research', title: 'Pesquisa de mercado', instruction: 'Levante contexto, concorrência e dores do público.', role: 'researcher', dependsOn: ['plan'] });
+    add({
+      key: 'research',
+      title: 'Pesquisa de mercado',
+      instruction: 'Levante contexto, concorrência e dores do público.',
+      role: 'researcher',
+      dependsOn: ['plan'],
+    });
   const afterResearch = has('researcher') ? ['research'] : ['plan'];
   if (has('creative'))
-    add({ key: 'creative', title: 'Conceito criativo', instruction: 'Crie conceito, mensagens e peças a partir do briefing.', role: 'creative', dependsOn: afterResearch });
+    add({
+      key: 'creative',
+      title: 'Conceito criativo',
+      instruction: 'Crie conceito, mensagens e peças a partir do briefing.',
+      role: 'creative',
+      dependsOn: afterResearch,
+    });
   if (has('developer'))
-    add({ key: 'build', title: 'Entrega técnica', instruction: 'Produza o material técnico necessário.', role: 'developer', dependsOn: afterResearch });
-  const reviewDeps = tasks.filter((t) => t.key !== 'plan' && t.key !== 'research').map((t) => t.key);
+    add({
+      key: 'build',
+      title: 'Entrega técnica',
+      instruction: 'Produza o material técnico necessário.',
+      role: 'developer',
+      dependsOn: afterResearch,
+    });
+  const reviewDeps = tasks
+    .filter((t) => t.key !== 'plan' && t.key !== 'research')
+    .map((t) => t.key);
   if (has('reviewer'))
     add({
       key: 'review',

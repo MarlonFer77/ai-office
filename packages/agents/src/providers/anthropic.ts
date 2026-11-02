@@ -25,11 +25,18 @@ export class AnthropicAdapter implements ProviderAdapter {
   constructor(opts: AnthropicAdapterOptions) {
     this.client =
       opts.client ??
-      new Anthropic({ apiKey: opts.apiKey, maxRetries: 1, ...(opts.baseURL ? { baseURL: opts.baseURL } : {}) });
+      new Anthropic({
+        apiKey: opts.apiKey,
+        maxRetries: 1,
+        ...(opts.baseURL ? { baseURL: opts.baseURL } : {}),
+      });
   }
 
   async generate(req: GenerateRequest): Promise<GenerateResult> {
-    const messages: Anthropic.MessageParam[] = req.messages.map((m) => ({ role: m.role, content: m.content }));
+    const messages: Anthropic.MessageParam[] = req.messages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
     const tools: Anthropic.Tool[] | undefined = req.tools?.length
       ? req.tools.map((t) => ({
           name: t.name,
@@ -40,8 +47,8 @@ export class AnthropicAdapter implements ProviderAdapter {
     const maxIterations = req.maxToolIterations ?? 4;
     let usage = emptyUsage();
     let finalText = '';
-    let stopReason: string | null = null;
-    let model = req.model;
+    let stopReason: string | null;
+    let model: string;
 
     try {
       for (let iteration = 0; ; iteration++) {
@@ -78,7 +85,9 @@ export class AnthropicAdapter implements ProviderAdapter {
         if (message.stop_reason === 'refusal') {
           throw new ProviderError('refusal', 'O modelo recusou a solicitação.', false);
         }
-        const toolUses = message.content.filter((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
+        const toolUses = message.content.filter(
+          (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use',
+        );
         if (message.stop_reason !== 'tool_use' || toolUses.length === 0 || !req.tools) break;
         if (iteration + 1 >= maxIterations) {
           finalText += '\n\n[Limite de chamadas de ferramenta atingido nesta execução.]';
@@ -137,16 +146,26 @@ export class AnthropicAdapter implements ProviderAdapter {
       const models = await this.listModels();
       return { ok: true as const, models };
     } catch (err) {
-      return { ok: false as const, error: err instanceof Error ? err.message : 'Falha desconhecida' };
+      return {
+        ok: false as const,
+        error: err instanceof Error ? err.message : 'Falha desconhecida',
+      };
     }
   }
 }
 
 export function normalizeAnthropicError(err: unknown): ProviderError {
   if (err instanceof ProviderError) return err;
-  if (err instanceof Anthropic.APIUserAbortError) return new ProviderError('aborted', 'Execução interrompida.', false);
-  if (err instanceof Anthropic.APIConnectionError) return new ProviderError('unavailable', 'Falha de conexão com a Anthropic.', true);
+  if (err instanceof Anthropic.APIUserAbortError)
+    return new ProviderError('aborted', 'Execução interrompida.', false);
+  if (err instanceof Anthropic.APIConnectionError)
+    return new ProviderError('unavailable', 'Falha de conexão com a Anthropic.', true);
   if (err instanceof Anthropic.APIError) return errorFromStatus(err.status, err.message);
-  if (err instanceof Error && err.name === 'AbortError') return new ProviderError('aborted', 'Execução interrompida.', false);
-  return new ProviderError('unknown', err instanceof Error ? err.message : 'Erro desconhecido', true);
+  if (err instanceof Error && err.name === 'AbortError')
+    return new ProviderError('aborted', 'Execução interrompida.', false);
+  return new ProviderError(
+    'unknown',
+    err instanceof Error ? err.message : 'Erro desconhecido',
+    true,
+  );
 }

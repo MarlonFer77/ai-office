@@ -17,7 +17,8 @@ export function createAdapter(input: AdapterFactoryInput): ProviderAdapter {
     case 'demo':
       return new DemoAdapter(input.demo);
     case 'anthropic':
-      if (!input.apiKey) throw new ProviderError('auth', 'Provedor Anthropic não configurado.', false);
+      if (!input.apiKey)
+        throw new ProviderError('auth', 'Provedor Anthropic não configurado.', false);
       return new AnthropicAdapter({ apiKey: input.apiKey });
     case 'openai':
       if (!input.apiKey) throw new ProviderError('auth', 'Provedor OpenAI não configurado.', false);

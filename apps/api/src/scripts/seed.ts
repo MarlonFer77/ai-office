@@ -3,7 +3,15 @@
  * and one mission executed end-to-end through the real orchestrator using the
  * deterministic demo provider (no external APIs).
  */
-import { approvals, createDb, missions, orm, projects, runMigrations, users } from '@ai-office/database';
+import {
+  approvals,
+  createDb,
+  missions,
+  orm,
+  projects,
+  runMigrations,
+  users,
+} from '@ai-office/database';
 import {
   createProject,
   ensureWorkspaceForUser,
@@ -29,12 +37,16 @@ const auth = createAuth(db, env);
 
 let user = await db.query.users.findFirst({ where: eq(users.email, DEMO_EMAIL) });
 if (!user) {
-  await auth.api.signUpEmail({ body: { email: DEMO_EMAIL, password: DEMO_PASSWORD, name: 'Diretor Demo' } });
+  await auth.api.signUpEmail({
+    body: { email: DEMO_EMAIL, password: DEMO_PASSWORD, name: 'Diretor Demo' },
+  });
   user = (await db.query.users.findFirst({ where: eq(users.email, DEMO_EMAIL) }))!;
   console.log(`Usuário demo criado: ${DEMO_EMAIL} / ${DEMO_PASSWORD}`);
 }
 const workspaceId = await ensureWorkspaceForUser(db, user);
-const existing = await db.query.projects.findFirst({ where: and(eq(projects.workspaceId, workspaceId), eq(projects.name, 'Lançamento FinFlow')) });
+const existing = await db.query.projects.findFirst({
+  where: and(eq(projects.workspaceId, workspaceId), eq(projects.name, 'Lançamento FinFlow')),
+});
 if (existing) {
   console.log('Escritório demo já existe — nada a fazer.');
   await close();
@@ -67,10 +79,20 @@ const project = await createProject(ctx, {
   workspaceId,
   userId: user.id,
 });
-const mission = await createMission(ctx, project.id, { title: 'Estratégia de lançamento', goal: 'Crie uma estratégia de lançamento para um novo software de gestão financeira.' }, user.id);
+const mission = await createMission(
+  ctx,
+  project.id,
+  {
+    title: 'Estratégia de lançamento',
+    goal: 'Crie uma estratégia de lançamento para um novo software de gestão financeira.',
+  },
+  user.id,
+);
 await drain();
 for (let i = 0; i < 5; i++) {
-  const pending = await db.query.approvals.findFirst({ where: and(eq(approvals.missionId, mission.id), eq(approvals.status, 'pending')) });
+  const pending = await db.query.approvals.findFirst({
+    where: and(eq(approvals.missionId, mission.id), eq(approvals.status, 'pending')),
+  });
   if (!pending) break;
   await resolveApproval(ctx, pending.id, 'approved', user.id);
   await drain();

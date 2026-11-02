@@ -6,8 +6,14 @@ import { PROVIDER_LABELS, TASK_STATUS_LABELS, TASK_STATUS_VARIANT } from '@/lib/
 export function AgentStatusBadge({ status }: { status: AgentStatus }) {
   const c = toCss(STATUS_COLORS[status]);
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium" style={{ borderColor: `${c}55`, background: `${c}18`, color: c }}>
-      <span className={`size-1.5 rounded-full ${status === 'running' ? 'animate-pulse' : ''}`} style={{ background: c }} />
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium"
+      style={{ borderColor: `${c}55`, background: `${c}18`, color: c }}
+    >
+      <span
+        className={`size-1.5 rounded-full ${status === 'running' ? 'animate-pulse' : ''}`}
+        style={{ background: c }}
+      />
       {STATUS_LABELS[status]}
     </span>
   );
@@ -28,5 +34,9 @@ export function TaskStatusBadge({ status }: { status: TaskStatus }) {
 }
 
 export function DemoTag() {
-  return <Badge variant="demo" title="Gerado pelo simulador local — não é uma resposta de modelo real">demo</Badge>;
+  return (
+    <Badge variant="demo" title="Gerado pelo simulador local — não é uma resposta de modelo real">
+      demo
+    </Badge>
+  );
 }

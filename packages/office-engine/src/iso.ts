@@ -33,15 +33,23 @@ export function rectPolygon(gx: number, gy: number, w: number, d: number): numbe
 export function pointInPolygon(p: Point, poly: number[]): boolean {
   let inside = false;
   for (let i = 0, j = poly.length - 2; i < poly.length; j = i, i += 2) {
-    const xi = poly[i]!, yi = poly[i + 1]!, xj = poly[j]!, yj = poly[j + 1]!;
+    const xi = poly[i]!,
+      yi = poly[i + 1]!,
+      xj = poly[j]!,
+      yj = poly[j + 1]!;
     if (yi > p.y !== yj > p.y && p.x < ((xj - xi) * (p.y - yi)) / (yj - yi) + xi) inside = !inside;
   }
   return inside;
 }
 
 /** World bounds of the whole floor plan in screen space. */
-export function worldBounds(rooms: { gridX: number; gridY: number; width: number; depth: number }[]) {
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+export function worldBounds(
+  rooms: { gridX: number; gridY: number; width: number; depth: number }[],
+) {
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
   for (const r of rooms) {
     const poly = rectPolygon(r.gridX, r.gridY, r.width, r.depth);
     for (let i = 0; i < poly.length; i += 2) {
@@ -57,8 +65,19 @@ export function worldBounds(rooms: { gridX: number; gridY: number; width: number
 }
 
 /** Camera fit: scale and offset so the world fits the viewport with padding. */
-export function fitCamera(bounds: ReturnType<typeof worldBounds>, viewW: number, viewH: number, padding = 32) {
-  const scale = Math.max(0.3, Math.min(1.6, Math.min((viewW - padding * 2) / bounds.width, (viewH - padding * 2) / bounds.height)));
+export function fitCamera(
+  bounds: ReturnType<typeof worldBounds>,
+  viewW: number,
+  viewH: number,
+  padding = 32,
+) {
+  const scale = Math.max(
+    0.3,
+    Math.min(
+      1.6,
+      Math.min((viewW - padding * 2) / bounds.width, (viewH - padding * 2) / bounds.height),
+    ),
+  );
   return {
     scale,
     x: viewW / 2 - (bounds.minX + bounds.width / 2) * scale,

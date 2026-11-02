@@ -5,6 +5,7 @@ import { Spinner } from '@ai-office/ui';
 import { useMe } from '@/lib/queries';
 import { Sidebar } from '@/components/shell/sidebar';
 import { Topbar } from '@/components/shell/topbar';
+import { LiveConnector } from '@/components/live-connector';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const me = useMe();
@@ -16,17 +17,27 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   if (!me.data) {
     return (
       <div className="grid h-dvh place-items-center text-muted-foreground" role="status">
-        <span className="flex items-center gap-2 text-sm"><Spinner /> Carregando escritório…</span>
+        <span className="flex items-center gap-2 text-sm">
+          <Spinner /> Carregando escritório…
+        </span>
       </div>
     );
   }
   return (
     <div className="flex min-h-dvh">
-      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-3 focus:py-2">Pular para o conteúdo</a>
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-3 focus:py-2"
+      >
+        Pular para o conteúdo
+      </a>
+      <LiveConnector />
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar />
-        <main id="main" className="min-w-0 flex-1">{children}</main>
+        <main id="main" className="min-w-0 flex-1">
+          {children}
+        </main>
       </div>
     </div>
   );

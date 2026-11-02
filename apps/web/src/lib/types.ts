@@ -1,8 +1,25 @@
-import type { AgentRole, AgentStatus, ApprovalKind, ArtifactKind, MissionStatus, OfficeEvent, ProjectMode, ProviderId, RoomKind, RunStatus, TaskStatus } from '@ai-office/shared';
+import type {
+  AgentRole,
+  AgentStatus,
+  ApprovalKind,
+  ArtifactKind,
+  MissionStatus,
+  OfficeEvent,
+  ProjectMode,
+  ProviderId,
+  RoomKind,
+  RunStatus,
+  TaskStatus,
+} from '@ai-office/shared';
 
 export type { OfficeEvent };
 
-export interface Progress { total: number; completed: number; failed: number; percent: number }
+export interface Progress {
+  total: number;
+  completed: number;
+  failed: number;
+  percent: number;
+}
 
 export interface Project {
   id: string;
@@ -202,4 +219,11 @@ export interface ProviderConfig {
   lastCheckError: string | null;
 }
 
-export interface ModelPrice { id?: string; provider: ProviderId; model: string; inputPerMTokUsd: number; outputPerMTokUsd: number; source: string }
+export interface ModelPrice {
+  id?: string;
+  provider: ProviderId;
+  model: string;
+  inputPerMTokUsd: number;
+  outputPerMTokUsd: number;
+  source: string;
+}

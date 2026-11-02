@@ -9,7 +9,10 @@ export class ApiError extends Error {
 }
 
 /** Same-origin fetch to the API (proxied by Next). Cookies are httpOnly. */
-export async function api<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
+export async function api<T>(
+  path: string,
+  init: RequestInit & { json?: unknown } = {},
+): Promise<T> {
   const { json, headers, ...rest } = init;
   const res = await fetch(`/api${path}`, {
     credentials: 'include',

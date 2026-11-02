@@ -30,7 +30,8 @@ export const ROBOT_PALETTES = [
   { body: 0xe0f2fe, trim: 0x06b6d4, visor: 0x082f49 },
   { body: 0xede9fe, trim: 0xa78bfa, visor: 0x1e1340 },
 ];
-export const robotPalette = (seed: number) => ROBOT_PALETTES[Math.abs(seed) % ROBOT_PALETTES.length]!;
+export const robotPalette = (seed: number) =>
+  ROBOT_PALETTES[Math.abs(seed) % ROBOT_PALETTES.length]!;
 
 export const hexToNumber = (hex: string) => Number.parseInt(hex.replace('#', ''), 16);
 export const toCss = (n: number) => `#${n.toString(16).padStart(6, '0')}`;

@@ -1,7 +1,12 @@
 'use client';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { applyEvent, initialSceneState, tickScene, type SceneState } from '@ai-office/office-engine';
+import {
+  applyEvent,
+  initialSceneState,
+  tickScene,
+  type SceneState,
+} from '@ai-office/office-engine';
 import type { Agent, OfficeEvent } from './types';
 
 type ViewMode = 'office' | 'list';
@@ -29,8 +34,10 @@ export const useUi = create<UiState>()(
       missionDialogOpen: false,
       setProjectId: (projectId) => set({ projectId, selectedAgentId: null, selectedRoomId: null }),
       setViewMode: (viewMode) => set({ viewMode }),
-      selectAgent: (selectedAgentId) => set({ selectedAgentId, ...(selectedAgentId ? { selectedRoomId: null } : {}) }),
-      selectRoom: (selectedRoomId) => set({ selectedRoomId, ...(selectedRoomId ? { selectedAgentId: null } : {}) }),
+      selectAgent: (selectedAgentId) =>
+        set({ selectedAgentId, ...(selectedAgentId ? { selectedRoomId: null } : {}) }),
+      selectRoom: (selectedRoomId) =>
+        set({ selectedRoomId, ...(selectedRoomId ? { selectedAgentId: null } : {}) }),
       setMissionDialogOpen: (missionDialogOpen) => set({ missionDialogOpen }),
     }),
     { name: 'ai-office-ui', partialize: (s) => ({ projectId: s.projectId, viewMode: s.viewMode }) },
@@ -77,7 +84,15 @@ export const useLive = create<LiveState>()((set, get) => ({
       const next = { ...s.scene.agents };
       for (const a of agents) {
         const cur = next[a.id];
-        next[a.id] = cur ? { ...cur, status: a.status, demo: a.provider === 'demo' } : { id: a.id, status: a.status, caption: null, lastActivityAt: 0, demo: a.provider === 'demo' };
+        next[a.id] = cur
+          ? { ...cur, status: a.status, demo: a.provider === 'demo' }
+          : {
+              id: a.id,
+              status: a.status,
+              caption: null,
+              lastActivityAt: 0,
+              demo: a.provider === 'demo',
+            };
       }
       return { scene: { ...s.scene, agents: next } };
     }),
@@ -89,7 +104,14 @@ export const useLive = create<LiveState>()((set, get) => ({
       const runId = String(e.payload.runId);
       const cur = s.streaming[runId];
       set({
-        streaming: { ...s.streaming, [runId]: { agentId: e.agentId ?? '', text: (cur?.text ?? '') + String(e.payload.text ?? ''), demo: e.demo } },
+        streaming: {
+          ...s.streaming,
+          [runId]: {
+            agentId: e.agentId ?? '',
+            text: (cur?.text ?? '') + String(e.payload.text ?? ''),
+            demo: e.demo,
+          },
+        },
         scene: applyEvent(s.scene, e),
       });
       return true;
@@ -100,14 +122,16 @@ export const useLive = create<LiveState>()((set, get) => ({
     set({ seen, scene: applyEvent(s.scene, e), feed: [e, ...s.feed].slice(0, FEED_LIMIT) });
     return true;
   },
-  tick: () => set((s) => {
-    const scene = tickScene(s.scene);
-    return scene === s.scene ? s : { scene };
-  }),
+  tick: () =>
+    set((s) => {
+      const scene = tickScene(s.scene);
+      return scene === s.scene ? s : { scene };
+    }),
   setStatus: (status) => set({ status }),
-  clearStream: (runId) => set((s) => {
-    if (!s.streaming[runId]) return s;
-    const { [runId]: _, ...rest } = s.streaming;
-    return { streaming: rest };
-  }),
+  clearStream: (runId) =>
+    set((s) => {
+      if (!s.streaming[runId]) return s;
+      const { [runId]: _, ...rest } = s.streaming;
+      return { streaming: rest };
+    }),
 }));

@@ -18,7 +18,17 @@ export interface Seat {
   deskTy: number;
 }
 
-export type FurnitureKind = 'plant' | 'shelf' | 'board' | 'server' | 'table' | 'sofa' | 'bigdesk' | 'screenwall' | 'lamp' | 'cooler';
+export type FurnitureKind =
+  | 'plant'
+  | 'shelf'
+  | 'board'
+  | 'server'
+  | 'table'
+  | 'sofa'
+  | 'bigdesk'
+  | 'screenwall'
+  | 'lamp'
+  | 'cooler';
 
 export interface Furniture {
   kind: FurnitureKind;
@@ -36,7 +46,14 @@ export function seatsForRoom(room: RoomLike, count: number): Seat[] {
     const cx = room.gridX + room.width / 2;
     const cy = room.gridY + room.depth / 2;
     const ring = [
-      [-1.6, -0.2], [1.6, 0.2], [0, -1.5], [0, 1.6], [-1.6, 1.2], [1.6, -1.2], [-0.9, -1.6], [0.9, 1.7],
+      [-1.6, -0.2],
+      [1.6, 0.2],
+      [0, -1.5],
+      [0, 1.6],
+      [-1.6, 1.2],
+      [1.6, -1.2],
+      [-0.9, -1.6],
+      [0.9, 1.7],
     ] as const;
     for (let i = 0; i < count; i++) {
       const [dx, dy] = ring[i % ring.length]!;
@@ -69,26 +86,50 @@ export function furnitureForRoom(room: RoomLike): Furniture[] {
     case 'research':
       return [...corners, { kind: 'shelf', tx: x + w - 1.0, ty: y + 2.2, w: 0.5, d: 2.2 }];
     case 'production':
-      return [...corners, { kind: 'server', tx: x + w - 1.0, ty: y + d - 2.4, w: 0.7, d: 0.7 }, { kind: 'server', tx: x + w - 1.0, ty: y + d - 1.5, w: 0.7, d: 0.7 }];
+      return [
+        ...corners,
+        { kind: 'server', tx: x + w - 1.0, ty: y + d - 2.4, w: 0.7, d: 0.7 },
+        { kind: 'server', tx: x + w - 1.0, ty: y + d - 1.5, w: 0.7, d: 0.7 },
+      ];
     case 'creative':
-      return [...corners, { kind: 'board', tx: x + w - 1.3, ty: y + d - 1.3, w: 1.4, d: 0.3 }, { kind: 'lamp', tx: x + 0.6, ty: y + 0.6 }];
+      return [
+        ...corners,
+        { kind: 'board', tx: x + w - 1.3, ty: y + d - 1.3, w: 1.4, d: 0.3 },
+        { kind: 'lamp', tx: x + 0.6, ty: y + 0.6 },
+      ];
     case 'review':
       return [...corners, { kind: 'shelf', tx: x + w - 1.0, ty: y + 2.0, w: 0.5, d: 1.8 }];
     case 'meeting':
-      return [{ kind: 'plant', tx: x + 0.5, ty: y + 0.5 }, { kind: 'plant', tx: x + w - 0.7, ty: y + d - 0.7 }, { kind: 'table', tx: x + w / 2 - 1.1, ty: y + d / 2 - 0.8, w: 2.2, d: 1.8 }];
+      return [
+        { kind: 'plant', tx: x + 0.5, ty: y + 0.5 },
+        { kind: 'plant', tx: x + w - 0.7, ty: y + d - 0.7 },
+        { kind: 'table', tx: x + w / 2 - 1.1, ty: y + d / 2 - 0.8, w: 2.2, d: 1.8 },
+      ];
     case 'director':
-      return [{ kind: 'bigdesk', tx: x + w / 2 - 1.2, ty: y + 1.2, w: 2.4, d: 1.0 }, { kind: 'sofa', tx: x + 0.8, ty: y + d - 1.3, w: 1.8, d: 0.8 }, { kind: 'plant', tx: x + w - 0.7, ty: y + 0.5 }, { kind: 'cooler', tx: x + w - 0.8, ty: y + d - 0.9 }];
+      return [
+        { kind: 'bigdesk', tx: x + w / 2 - 1.2, ty: y + 1.2, w: 2.4, d: 1.0 },
+        { kind: 'sofa', tx: x + 0.8, ty: y + d - 1.3, w: 1.8, d: 0.8 },
+        { kind: 'plant', tx: x + w - 0.7, ty: y + 0.5 },
+        { kind: 'cooler', tx: x + w - 0.8, ty: y + d - 0.9 },
+      ];
   }
 }
 
 /** Assigns every agent a seat in its room (agents without room go to the meeting room). */
-export function assignSeats<A extends { id: string; roomId: string | null }>(rooms: RoomLike[], agents: A[]): Map<string, Seat & { roomId: string }> {
+export function assignSeats<A extends { id: string; roomId: string | null }>(
+  rooms: RoomLike[],
+  agents: A[],
+): Map<string, Seat & { roomId: string }> {
   const out = new Map<string, Seat & { roomId: string }>();
   const fallback = rooms.find((r) => r.kind === 'meeting') ?? rooms[0];
   if (!fallback) return out;
   const byRoom = new Map<string, A[]>();
   for (const a of agents) {
-    const rid = rooms.some((r) => r.id === a.roomId) && rooms.find((r) => r.id === a.roomId)!.kind !== 'director' ? a.roomId! : fallback.id;
+    const rid =
+      rooms.some((r) => r.id === a.roomId) &&
+      rooms.find((r) => r.id === a.roomId)!.kind !== 'director'
+        ? a.roomId!
+        : fallback.id;
     byRoom.set(rid, [...(byRoom.get(rid) ?? []), a]);
   }
   for (const [rid, list] of byRoom) {

@@ -72,13 +72,7 @@ export const MISSION_STATUSES = [
 ] as const;
 export type MissionStatus = (typeof MISSION_STATUSES)[number];
 
-export const RUN_STATUSES = [
-  'queued',
-  'running',
-  'succeeded',
-  'failed',
-  'cancelled',
-] as const;
+export const RUN_STATUSES = ['queued', 'running', 'succeeded', 'failed', 'cancelled'] as const;
 export type RunStatus = (typeof RUN_STATUSES)[number];
 
 export const ARTIFACT_KINDS = [

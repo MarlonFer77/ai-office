@@ -6,14 +6,33 @@ import { DemoAdapter } from './providers/demo.js';
 
 describe('pricing', () => {
   it('computes cost from published prices', () => {
-    const r = computeCost('anthropic', 'claude-opus-5-5', { inputTokens: 1_000_000, outputTokens: 100_000, cacheReadTokens: 0, cacheWriteTokens: 0 }, DEFAULT_MODEL_PRICES);
+    const r = computeCost(
+      'anthropic',
+      'claude-opus-5-5',
+      { inputTokens: 1_000_000, outputTokens: 100_000, cacheReadTokens: 0, cacheWriteTokens: 0 },
+      DEFAULT_MODEL_PRICES,
+    );
     expect(r.costUsd).toBe(6);
   });
   it('returns null (unknown) instead of inventing a price', () => {
-    expect(computeCost('openai', 'gpt-x', { inputTokens: 10, outputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0 }, DEFAULT_MODEL_PRICES).costUsd).toBeNull();
+    expect(
+      computeCost(
+        'openai',
+        'gpt-x',
+        { inputTokens: 10, outputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0 },
+        DEFAULT_MODEL_PRICES,
+      ).costUsd,
+    ).toBeNull();
   });
   it('demo runs cost zero', () => {
-    expect(computeCost('demo', 'demo-sim-1', { inputTokens: 10, outputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0 }, []).costUsd).toBe(0);
+    expect(
+      computeCost(
+        'demo',
+        'demo-sim-1',
+        { inputTokens: 10, outputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0 },
+        [],
+      ).costUsd,
+    ).toBe(0);
   });
 });
 
@@ -24,12 +43,23 @@ describe('plans', () => {
     expect(plan.tasks.at(-1)?.requiresApproval).toBe(true);
   });
   it('parses JSON wrapped in prose and rejects cycles/unknown roles', () => {
-    const ok = parsePlan('Aqui: {"summary":"s","tasks":[{"key":"a","title":"A","instruction":"i","role":"researcher"}]} fim', ['researcher']);
+    const ok = parsePlan(
+      'Aqui: {"summary":"s","tasks":[{"key":"a","title":"A","instruction":"i","role":"researcher"}]} fim',
+      ['researcher'],
+    );
     expect(ok.tasks).toHaveLength(1);
     expect(() =>
-      parsePlan('{"summary":"s","tasks":[{"key":"a","title":"A","instruction":"i","role":"researcher","dependsOn":["b"]},{"key":"b","title":"B","instruction":"i","role":"researcher"}]}', ['researcher']),
+      parsePlan(
+        '{"summary":"s","tasks":[{"key":"a","title":"A","instruction":"i","role":"researcher","dependsOn":["b"]},{"key":"b","title":"B","instruction":"i","role":"researcher"}]}',
+        ['researcher'],
+      ),
     ).toThrow(/cíclica/);
-    expect(() => parsePlan('{"summary":"s","tasks":[{"key":"a","title":"A","instruction":"i","role":"creative"}]}', ['researcher'])).toThrow(/Papel/);
+    expect(() =>
+      parsePlan(
+        '{"summary":"s","tasks":[{"key":"a","title":"A","instruction":"i","role":"creative"}]}',
+        ['researcher'],
+      ),
+    ).toThrow(/Papel/);
   });
 });
 
@@ -46,7 +76,12 @@ describe('crypto', () => {
 describe('DemoAdapter', () => {
   it('is deterministic and labelled as demonstration', async () => {
     const a = new DemoAdapter();
-    const req = { model: 'demo-sim-1', system: '[role:researcher] x', messages: [{ role: 'user' as const, content: 'Tarefa: Pesquisa' }], maxOutputTokens: 100 };
+    const req = {
+      model: 'demo-sim-1',
+      system: '[role:researcher] x',
+      messages: [{ role: 'user' as const, content: 'Tarefa: Pesquisa' }],
+      maxOutputTokens: 100,
+    };
     const r1 = await a.generate(req);
     const r2 = await a.generate(req);
     expect(r1.text).toBe(r2.text);

@@ -40,12 +40,29 @@ export function useProjectStream(projectId: string | null, startAfter: string | 
       const pid = e.projectId;
       invalidate([...qk.office(pid)]);
       if (e.agentId) invalidate([...qk.agent(e.agentId)], [...qk.runs(e.agentId)]);
-      if (e.type === 'agent.message' || e.type === 'agent.started' || e.type === 'agent.idle' || e.type === 'agent.error') {
+      if (
+        e.type === 'agent.message' ||
+        e.type === 'agent.started' ||
+        e.type === 'agent.idle' ||
+        e.type === 'agent.error'
+      ) {
         if (e.agentId) invalidate([...qk.messages(e.agentId)]);
-        if (e.type === 'agent.message' && e.payload.runId) setTimeout(() => useLive.getState().clearStream(String(e.payload.runId)), 400);
+        if (e.type === 'agent.message' && e.payload.runId)
+          setTimeout(() => useLive.getState().clearStream(String(e.payload.runId)), 400);
       }
-      if (e.type.startsWith('task.') || e.type.startsWith('mission.') || e.type.startsWith('approval.') || e.type.startsWith('handoff.')) {
-        invalidate(['missions', pid], ['mission'], ['tasks', pid], ['approvals', pid], ['handoffs', pid]);
+      if (
+        e.type.startsWith('task.') ||
+        e.type.startsWith('mission.') ||
+        e.type.startsWith('approval.') ||
+        e.type.startsWith('handoff.')
+      ) {
+        invalidate(
+          ['missions', pid],
+          ['mission'],
+          ['tasks', pid],
+          ['approvals', pid],
+          ['handoffs', pid],
+        );
       }
       if (e.type === 'artifact.created') invalidate(['artifacts', pid], ['artifact']);
       if (e.type === 'agent.message') invalidate(['usage', pid]);
@@ -54,7 +71,10 @@ export function useProjectStream(projectId: string | null, startAfter: string | 
 
     const connect = (since: string) => {
       live.setStatus(attempt === 0 ? 'connecting' : 'reconnecting');
-      es = new EventSource(`/api/projects/${projectId}/events/stream?since=${encodeURIComponent(since)}`, { withCredentials: true });
+      es = new EventSource(
+        `/api/projects/${projectId}/events/stream?since=${encodeURIComponent(since)}`,
+        { withCredentials: true },
+      );
       es.addEventListener('ready', () => {
         attempt = 0;
         useLive.getState().setStatus('open');
@@ -73,7 +93,10 @@ export function useProjectStream(projectId: string | null, startAfter: string | 
           attempt++;
           useLive.getState().setStatus(attempt > 5 ? 'error' : 'reconnecting');
           const delay = Math.min(30000, 1000 * 2 ** Math.min(attempt, 5));
-          retryTimer = setTimeout(() => connect(useLive.getState().scene.lastEventId ?? since), delay);
+          retryTimer = setTimeout(
+            () => connect(useLive.getState().scene.lastEventId ?? since),
+            delay,
+          );
         } else {
           useLive.getState().setStatus('reconnecting');
         }

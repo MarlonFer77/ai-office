@@ -19,7 +19,11 @@ export const ROOM_ICONS: Record<RoomKind, string> = {
   director: '★',
 };
 
-export const PROVIDER_LABELS: Record<ProviderId, string> = { anthropic: 'Anthropic', openai: 'OpenAI', demo: 'Demo' };
+export const PROVIDER_LABELS: Record<ProviderId, string> = {
+  anthropic: 'Anthropic',
+  openai: 'OpenAI',
+  demo: 'Demo',
+};
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   pending: 'Pendente',
@@ -32,7 +36,10 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   cancelled: 'Cancelada',
 };
 
-export const TASK_STATUS_VARIANT: Record<TaskStatus, 'secondary' | 'info' | 'default' | 'outline' | 'warning' | 'success' | 'destructive'> = {
+export const TASK_STATUS_VARIANT: Record<
+  TaskStatus,
+  'secondary' | 'info' | 'default' | 'outline' | 'warning' | 'success' | 'destructive'
+> = {
   pending: 'outline',
   ready: 'info',
   running: 'default',
@@ -64,10 +71,16 @@ export function timeAgo(iso: string | Date): string {
   if (Math.abs(h) < 24) return rtf.format(h, 'hour');
   return rtf.format(Math.round(h / 24), 'day');
 }
-export const dateTime = (iso: string) => new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+export const dateTime = (iso: string) =>
+  new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 
 export function usd(n: number | null | undefined): string {
   if (n == null) return 'custo desconhecido';
-  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: n < 1 ? 4 : 2, maximumFractionDigits: n < 1 ? 4 : 2 });
+  return n.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: n < 1 ? 4 : 2,
+    maximumFractionDigits: n < 1 ? 4 : 2,
+  });
 }
 export const tokens = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));

@@ -2,8 +2,11 @@
   "name": "ai-office",
   "private": true,
   "version": "0.1.0",
+  "type": "module",
   "packageManager": "pnpm@10.28.0",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "turbo run dev --parallel --filter=@ai-office/web --filter=@ai-office/api --filter=@ai-office/worker",
     "build": "turbo run build",
@@ -15,7 +18,8 @@
     "format:check": "prettier --check .",
     "db:generate": "pnpm --filter @ai-office/database db:generate",
     "db:migrate": "pnpm --filter @ai-office/database db:migrate",
-    "db:seed": "pnpm --filter @ai-office/database db:seed",
+    "start": "turbo run start --parallel --filter=@ai-office/web --filter=@ai-office/api --filter=@ai-office/worker",
+    "db:seed": "pnpm --filter @ai-office/api seed",
     "services:up": "docker compose up -d postgres redis minio minio-init",
     "services:down": "docker compose down"
   },

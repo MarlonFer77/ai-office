@@ -5,7 +5,8 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:
  * Key material comes from ENCRYPTION_KEY (any length; derived with SHA-256).
  */
 function deriveKey(secret: string): Buffer {
-  if (!secret || secret.length < 16) throw new Error('ENCRYPTION_KEY must be at least 16 characters');
+  if (!secret || secret.length < 16)
+    throw new Error('ENCRYPTION_KEY must be at least 16 characters');
   return createHash('sha256').update(secret).digest();
 }
 
@@ -22,7 +23,9 @@ export function decryptSecret(payload: string, secret: string): string {
   if (v !== 'v1' || !iv || !tag || !data) throw new Error('Invalid encrypted payload');
   const decipher = createDecipheriv('aes-256-gcm', deriveKey(secret), Buffer.from(iv, 'base64'));
   decipher.setAuthTag(Buffer.from(tag, 'base64'));
-  return Buffer.concat([decipher.update(Buffer.from(data, 'base64')), decipher.final()]).toString('utf8');
+  return Buffer.concat([decipher.update(Buffer.from(data, 'base64')), decipher.final()]).toString(
+    'utf8',
+  );
 }
 
 export function keyHint(key: string): string {

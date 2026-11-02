@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: aioffice
+          POSTGRES_PASSWORD: aioffice
+          POSTGRES_DB: aioffice
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U aioffice" --health-interval 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://aioffice:aioffice@localhost:5432/aioffice
+      TEST_DATABASE_URL: postgres://aioffice:aioffice@localhost:5432/aioffice_test
+      REDIS_URL: redis://localhost:6379
+      TEST_REDIS_URL: redis://localhost:6379/15
+      WEB_ORIGIN: http://localhost:3000
+      BETTER_AUTH_URL: http://localhost:3000
+      BETTER_AUTH_SECRET: ci-only-secret-ci-only-secret-ci-only-secret
+      ENCRYPTION_KEY: ci-only-encryption-key-123456
+      DEMO_LOGIN_ENABLED: 'true'
+      DEMO_CHUNK_DELAY_MS: '5'
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Create test database
+        run: PGPASSWORD=aioffice psql -h localhost -U aioffice -d aioffice -c 'CREATE DATABASE aioffice_test'
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm build
+      - run: pnpm typecheck
+      - run: pnpm test
+      - name: Migrate and seed demo data
+        run: pnpm db:migrate && pnpm db:seed
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+      - name: End-to-end tests (demo mode)
+        run: pnpm test:e2e
+        env:
+          E2E_START_SERVERS: '1'
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7

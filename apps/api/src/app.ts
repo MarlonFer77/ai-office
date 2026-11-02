@@ -53,7 +53,12 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
         : {
             level: deps.env.LOG_LEVEL,
             // Never log credentials or cookies.
-            redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]', '*.apiKey'],
+            redact: [
+              'req.headers.authorization',
+              'req.headers.cookie',
+              'res.headers["set-cookie"]',
+              '*.apiKey',
+            ],
           },
     bodyLimit: 8 * 1024 * 1024,
     trustProxy: true,
@@ -74,11 +79,17 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
 
   app.setErrorHandler((err, req, reply) => {
     if (err instanceof ZodError) {
-      return reply.status(400).send({ error: 'validation_error', message: 'Dados inválidos.', issues: err.issues.map((i) => ({ path: i.path.join('.'), message: i.message })) });
+      return reply.status(400).send({
+        error: 'validation_error',
+        message: 'Dados inválidos.',
+        issues: err.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
+      });
     }
-    if (err instanceof HttpError) return reply.status(err.statusCode).send({ error: 'http_error', message: err.message });
+    if (err instanceof HttpError)
+      return reply.status(err.statusCode).send({ error: 'http_error', message: err.message });
     const status = (err as { statusCode?: number }).statusCode;
-    if (status && status < 500) return reply.status(status).send({ error: 'request_error', message: (err as Error).message });
+    if (status && status < 500)
+      return reply.status(status).send({ error: 'request_error', message: (err as Error).message });
     req.log.error({ err }, 'unhandled error');
     return reply.status(500).send({ error: 'internal_error', message: 'Erro interno.' });
   });
@@ -87,7 +98,9 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   app.route({
     method: ['GET', 'POST'],
     url: '/api/auth/*',
-    config: { rateLimit: { max: deps.env.NODE_ENV === 'test' ? 10_000 : 30, timeWindow: '1 minute' } },
+    config: {
+      rateLimit: { max: deps.env.NODE_ENV === 'test' ? 10_000 : 30, timeWindow: '1 minute' },
+    },
     async handler(request, reply) {
       const url = new URL(request.url, deps.env.BETTER_AUTH_URL);
       const req = new Request(url.toString(), {
@@ -107,7 +120,10 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   });
 
   app.get('/api/health', async () => ({ ok: true, sse: deps.hub.connectionCount() }));
-  app.get('/api/config', async () => ({ demoLoginEnabled: deps.env.DEMO_LOGIN_ENABLED, storageEnabled: Boolean(deps.storage) }));
+  app.get('/api/config', async () => ({
+    demoLoginEnabled: deps.env.DEMO_LOGIN_ENABLED,
+    storageEnabled: Boolean(deps.storage),
+  }));
 
   await registerRoutes(app, deps);
   return app;
@@ -117,7 +133,10 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
 export function requireAuth(deps: AppDeps) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     const session = await deps.auth.api.getSession({ headers: fromNodeHeaders(request.headers) });
-    if (!session) return reply.status(401).send({ error: 'unauthorized', message: 'Faça login para continuar.' });
+    if (!session)
+      return reply
+        .status(401)
+        .send({ error: 'unauthorized', message: 'Faça login para continuar.' });
     request.user = { id: session.user.id, name: session.user.name, email: session.user.email };
     request.workspaceId = await ensureWorkspaceForUser(deps.db, session.user);
   };
@@ -128,7 +147,10 @@ export async function loadProject(deps: AppDeps, request: FastifyRequest, projec
   const project = await deps.db.query.projects.findFirst({ where: eq(projects.id, projectId) });
   if (!project) throw new HttpError(404, 'Projeto não encontrado.');
   const member = await deps.db.query.workspaceMembers.findFirst({
-    where: and(eq(workspaceMembers.workspaceId, project.workspaceId), eq(workspaceMembers.userId, request.user!.id)),
+    where: and(
+      eq(workspaceMembers.workspaceId, project.workspaceId),
+      eq(workspaceMembers.userId, request.user!.id),
+    ),
   });
   if (!member) throw new HttpError(404, 'Projeto não encontrado.');
   return project;

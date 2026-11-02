@@ -26,18 +26,33 @@ import { emitEvent } from './events.js';
 const { eq, and } = orm;
 
 export async function ensureWorkspaceForUser(db: Database, user: { id: string; name: string }) {
-  const existing = await db.query.workspaceMembers.findFirst({ where: eq(workspaceMembers.userId, user.id) });
+  const existing = await db.query.workspaceMembers.findFirst({
+    where: eq(workspaceMembers.userId, user.id),
+  });
   if (existing) return existing.workspaceId;
   return db.transaction(async (tx) => {
-    const [ws] = await tx.insert(workspaces).values({ name: `Escritório de ${user.name || 'Usuário'}` }).returning();
-    await tx.insert(workspaceMembers).values({ workspaceId: ws!.id, userId: user.id, role: 'owner' });
+    const [ws] = await tx
+      .insert(workspaces)
+      .values({ name: `Escritório de ${user.name || 'Usuário'}` })
+      .returning();
+    await tx
+      .insert(workspaceMembers)
+      .values({ workspaceId: ws!.id, userId: user.id, role: 'owner' });
     return ws!.id;
   });
 }
 
 export async function audit(
   db: Database,
-  entry: { workspaceId: string | null; userId: string | null; action: string; resourceType: string; resourceId?: string | null; metadata?: Record<string, unknown>; ip?: string | null },
+  entry: {
+    workspaceId: string | null;
+    userId: string | null;
+    action: string;
+    resourceType: string;
+    resourceId?: string | null;
+    metadata?: Record<string, unknown>;
+    ip?: string | null;
+  },
 ) {
   await db.insert(auditLogs).values({
     workspaceId: entry.workspaceId,
@@ -59,14 +74,24 @@ const STARTER_TEAM: { name: string; role: AgentRole; real: 'anthropic' | 'openai
 ];
 
 /** Picks the provider/model for a starter agent: real provider if configured, else demo. */
-async function starterModel(db: Database, workspaceId: string, preferred: 'anthropic' | 'openai', mode: 'demo' | 'real') {
+async function starterModel(
+  db: Database,
+  workspaceId: string,
+  preferred: 'anthropic' | 'openai',
+  mode: 'demo' | 'real',
+) {
   if (mode === 'demo') return { provider: 'demo' as ProviderId, model: 'demo-sim-1' };
   const configs = await db.query.providerConfigs.findMany({
     where: and(eq(providerConfigs.workspaceId, workspaceId), eq(providerConfigs.enabled, true)),
   });
-  const pick = configs.find((c) => c.provider === preferred && c.encryptedApiKey) ?? configs.find((c) => c.encryptedApiKey);
+  const pick =
+    configs.find((c) => c.provider === preferred && c.encryptedApiKey) ??
+    configs.find((c) => c.encryptedApiKey);
   if (!pick) return { provider: 'demo' as ProviderId, model: 'demo-sim-1' };
-  const model = pick.defaultModel ?? SUGGESTED_MODELS[pick.provider as 'anthropic' | 'openai'][0] ?? pick.availableModels[0];
+  const model =
+    pick.defaultModel ??
+    SUGGESTED_MODELS[pick.provider as 'anthropic' | 'openai'][0] ??
+    pick.availableModels[0];
   if (!model) return { provider: 'demo' as ProviderId, model: 'demo-sim-1' };
   return { provider: pick.provider, model };
 }
@@ -107,8 +132,16 @@ export async function createProject(
   if (input.starterTeam) {
     let seed = 1;
     for (const member of STARTER_TEAM) {
-      const { provider, model } = await starterModel(db, input.workspaceId, member.real, input.mode);
-      const name = provider === 'demo' ? member.name.replace(/^(Claude|GPT) /, '') : member.name.replace(/^(Claude|GPT) /, provider === 'openai' ? 'GPT ' : 'Claude ');
+      const { provider, model } = await starterModel(
+        db,
+        input.workspaceId,
+        member.real,
+        input.mode,
+      );
+      const name =
+        provider === 'demo'
+          ? member.name.replace(/^(Claude|GPT) /, '')
+          : member.name.replace(/^(Claude|GPT) /, provider === 'openai' ? 'GPT ' : 'Claude ');
       await createAgent(ctx, project.id, {
         name,
         role: member.role,
@@ -121,13 +154,25 @@ export async function createProject(
       });
     }
   }
-  await audit(db, { workspaceId: input.workspaceId, userId: input.userId, action: 'project.create', resourceType: 'project', resourceId: project.id });
+  await audit(db, {
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    action: 'project.create',
+    resourceType: 'project',
+    resourceId: project.id,
+  });
   return project;
 }
 
-export async function createAgent(ctx: Pick<OrchestratorContext, 'db' | 'redis' | 'logger'>, projectId: string, input: CreateAgentInput) {
+export async function createAgent(
+  ctx: Pick<OrchestratorContext, 'db' | 'redis' | 'logger'>,
+  projectId: string,
+  input: CreateAgentInput,
+) {
   const roomKind = input.roomKind ?? ROLE_ROOM[input.role];
-  const room = await ctx.db.query.rooms.findFirst({ where: and(eq(rooms.projectId, projectId), eq(rooms.kind, roomKind)) });
+  const room = await ctx.db.query.rooms.findFirst({
+    where: and(eq(rooms.projectId, projectId), eq(rooms.kind, roomKind)),
+  });
   const agent = await ctx.db.transaction(async (tx) => {
     const [a] = await tx
       .insert(agents)

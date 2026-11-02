@@ -1,0 +1,88 @@
+# Local infrastructure for AI Office.
+#   Infra only (default):   docker compose up -d
+#   Full stack in Docker:   docker compose --profile app up -d --build
+# Pin image digests/tags for production deployments.
+name: ai-office
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: aioffice
+      POSTGRES_PASSWORD: aioffice
+      POSTGRES_DB: aioffice
+    ports: ['5432:5432']
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/docker/init-test-db.sql:/docker-entrypoint-initdb.d/10-test-db.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U aioffice']
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    ports: ['6379:6379']
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER: aioffice
+      MINIO_ROOT_PASSWORD: aioffice-minio-secret
+    ports: ['9000:9000', '9001:9001']
+    volumes: [miniodata:/data]
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on: [minio]
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 aioffice aioffice-minio-secret; do sleep 1; done;
+      mc mb --ignore-existing local/ai-office;
+      mc anonymous set none local/ai-office;
+      "
+
+  api:
+    profiles: [app]
+    build: { context: ., dockerfile: infra/docker/Dockerfile, target: api }
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://aioffice:aioffice@postgres:5432/aioffice
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://minio:9000
+      RUN_MIGRATIONS: 'true'
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    ports: ['4000:4000']
+
+  worker:
+    profiles: [app]
+    build: { context: ., dockerfile: infra/docker/Dockerfile, target: worker }
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://aioffice:aioffice@postgres:5432/aioffice
+      REDIS_URL: redis://redis:6379
+    depends_on: [api]
+
+  web:
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile
+      target: web
+      args: { API_INTERNAL_URL: 'http://api:4000' }
+    depends_on: [api]
+    ports: ['3000:3000']
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:

@@ -32,14 +32,22 @@ export function TeamBar({ agents, onAddAgent }: { agents: Agent[]; onAddAgent: (
                   <span className="truncate text-[13px] font-medium">{a.name}</span>
                 </span>
                 <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  {ROLE_LABELS[a.role]} · <ProviderBadge provider={a.provider} model={a.provider === 'demo' ? undefined : a.model} />
+                  {ROLE_LABELS[a.role]} ·{' '}
+                  <ProviderBadge
+                    provider={a.provider}
+                    model={a.provider === 'demo' ? undefined : a.model}
+                  />
                 </span>
                 <AgentStatusBadge status={status} />
               </span>
             </button>
           );
         })}
-        <Button variant="outline" className="h-auto min-w-[140px] flex-col gap-1 border-dashed py-3" onClick={onAddAgent}>
+        <Button
+          variant="outline"
+          className="h-auto min-w-[140px] flex-col gap-1 border-dashed py-3"
+          onClick={onAddAgent}
+        >
           <Plus /> <span className="text-xs">Adicionar agente</span>
         </Button>
       </div>

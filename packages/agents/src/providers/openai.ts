@@ -26,7 +26,11 @@ export class OpenAIAdapter implements ProviderAdapter {
   constructor(opts: OpenAIAdapterOptions) {
     this.client =
       opts.client ??
-      new OpenAI({ apiKey: opts.apiKey, maxRetries: 1, ...(opts.baseURL ? { baseURL: opts.baseURL } : {}) });
+      new OpenAI({
+        apiKey: opts.apiKey,
+        maxRetries: 1,
+        ...(opts.baseURL ? { baseURL: opts.baseURL } : {}),
+      });
   }
 
   async generate(req: GenerateRequest): Promise<GenerateResult> {
@@ -157,16 +161,27 @@ export class OpenAIAdapter implements ProviderAdapter {
     try {
       return { ok: true as const, models: await this.listModels() };
     } catch (err) {
-      return { ok: false as const, error: err instanceof Error ? err.message : 'Falha desconhecida' };
+      return {
+        ok: false as const,
+        error: err instanceof Error ? err.message : 'Falha desconhecida',
+      };
     }
   }
 }
 
 export function normalizeOpenAIError(err: unknown): ProviderError {
   if (err instanceof ProviderError) return err;
-  if (err instanceof OpenAI.APIUserAbortError) return new ProviderError('aborted', 'Execução interrompida.', false);
-  if (err instanceof OpenAI.APIConnectionError) return new ProviderError('unavailable', 'Falha de conexão com a OpenAI.', true);
-  if (err instanceof OpenAI.APIError) return errorFromStatus(err.status, truncate(err.message, 300));
-  if (err instanceof Error && err.name === 'AbortError') return new ProviderError('aborted', 'Execução interrompida.', false);
-  return new ProviderError('unknown', err instanceof Error ? err.message : 'Erro desconhecido', true);
+  if (err instanceof OpenAI.APIUserAbortError)
+    return new ProviderError('aborted', 'Execução interrompida.', false);
+  if (err instanceof OpenAI.APIConnectionError)
+    return new ProviderError('unavailable', 'Falha de conexão com a OpenAI.', true);
+  if (err instanceof OpenAI.APIError)
+    return errorFromStatus(err.status, truncate(err.message, 300));
+  if (err instanceof Error && err.name === 'AbortError')
+    return new ProviderError('aborted', 'Execução interrompida.', false);
+  return new ProviderError(
+    'unknown',
+    err instanceof Error ? err.message : 'Erro desconhecido',
+    true,
+  );
 }

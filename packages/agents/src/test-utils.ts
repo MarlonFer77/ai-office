@@ -14,8 +14,13 @@ export function sseResponse(frames: string[], opts: { delayMs?: number } = {}): 
 }
 
 export function jsonResponse(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
 }
 
-export const anthropicFrame = (event: string, data: unknown) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-export const openaiFrame = (data: unknown) => `data: ${typeof data === 'string' ? data : JSON.stringify(data)}\n\n`;
+export const anthropicFrame = (event: string, data: unknown) =>
+  `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+export const openaiFrame = (data: unknown) =>
+  `data: ${typeof data === 'string' ? data : JSON.stringify(data)}\n\n`;

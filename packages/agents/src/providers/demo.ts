@@ -34,7 +34,12 @@ export class DemoAdapter implements ProviderAdapter {
       const callId = `demo-call-${hash(last).toString(16)}`;
       req.onToolEvent?.({ phase: 'started', name: listTool.name, callId, input: {} });
       const result = await listTool.run({});
-      req.onToolEvent?.({ phase: 'completed', name: listTool.name, callId, resultPreview: result.slice(0, 300) });
+      req.onToolEvent?.({
+        phase: 'completed',
+        name: listTool.name,
+        callId,
+        resultPreview: result.slice(0, 300),
+      });
       toolNote = `\n\n> Consultei a biblioteca do projeto (${countLines(result)} artefato(s) disponíveis).`;
     }
 
@@ -45,10 +50,17 @@ export class DemoAdapter implements ProviderAdapter {
       req.onDelta?.(chunk);
       if (this.opts.chunkDelayMs) await sleep(this.opts.chunkDelayMs, req.signal);
     }
-    const inputTokens = Math.ceil((req.system.length + req.messages.reduce((n, m) => n + m.content.length, 0)) / 4);
+    const inputTokens = Math.ceil(
+      (req.system.length + req.messages.reduce((n, m) => n + m.content.length, 0)) / 4,
+    );
     return {
       text,
-      usage: { inputTokens, outputTokens: Math.ceil(text.length / 4), cacheReadTokens: 0, cacheWriteTokens: 0 },
+      usage: {
+        inputTokens,
+        outputTokens: Math.ceil(text.length / 4),
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+      },
       stopReason: 'end_turn',
       model: req.model,
       demo: true,
@@ -102,7 +114,8 @@ function topicOf(input: string): string {
   return base.length > 140 ? `${base.slice(0, 140)}…` : base || 'o projeto';
 }
 
-const DEMO_HEADER = '_[DEMONSTRAÇÃO — resposta gerada pelo simulador local, sem chamada a um modelo real]_';
+const DEMO_HEADER =
+  '_[DEMONSTRAÇÃO — resposta gerada pelo simulador local, sem chamada a um modelo real]_';
 
 export function composeDemoText(role: AgentRole, input: string, turn: number): string {
   const topic = topicOf(input);

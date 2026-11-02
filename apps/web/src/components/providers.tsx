@@ -8,7 +8,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
     () =>
       new QueryClient({
         defaultOptions: {
-          queries: { staleTime: 10_000, refetchOnWindowFocus: false, retry: (count, err) => (err as { status?: number }).status !== 401 && (err as { status?: number }).status !== 404 && count < 2 },
+          queries: {
+            staleTime: 10_000,
+            refetchOnWindowFocus: false,
+            retry: (count, err) =>
+              (err as { status?: number }).status !== 401 &&
+              (err as { status?: number }).status !== 404 &&
+              count < 2,
+          },
         },
       }),
   );

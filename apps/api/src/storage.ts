@@ -17,12 +17,17 @@ export function createStorage(env: Env): ObjectStorage | null {
   const Bucket = env.S3_BUCKET;
   return {
     async put(key, body, contentType) {
-      await client.send(new PutObjectCommand({ Bucket, Key: key, Body: body, ContentType: contentType }));
+      await client.send(
+        new PutObjectCommand({ Bucket, Key: key, Body: body, ContentType: contentType }),
+      );
     },
     async get(key) {
       const out = await client.send(new GetObjectCommand({ Bucket, Key: key }));
       const bytes = await out.Body!.transformToByteArray();
-      return { body: Buffer.from(bytes), ...(out.ContentType ? { contentType: out.ContentType } : {}) };
+      return {
+        body: Buffer.from(bytes),
+        ...(out.ContentType ? { contentType: out.ContentType } : {}),
+      };
     },
   };
 }

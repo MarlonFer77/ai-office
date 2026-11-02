@@ -14,5 +14,10 @@ export function computeProgress(statuses: TaskStatus[]): {
   const completed = considered.filter((s) => s === 'completed').length;
   const failed = considered.filter((s) => s === 'failed').length;
   const total = considered.length;
-  return { total, completed, failed, percent: total === 0 ? 0 : Math.round((completed / total) * 100) };
+  return {
+    total,
+    completed,
+    failed,
+    percent: total === 0 ? 0 : Math.round((completed / total) * 100),
+  };
 }

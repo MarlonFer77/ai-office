@@ -1,4 +1,4 @@
-import { buildDemoPlan, buildPlanningPrompt, buildSystemPrompt, parsePlan } from '@ai-office/agents';
+import { buildDemoPlan, buildPlanningPrompt, parsePlan } from '@ai-office/agents';
 import {
   agents,
   agentRuns,
@@ -26,13 +26,25 @@ const { and, eq, inArray, asc } = orm;
 type Agent = typeof agents.$inferSelect;
 type Task = typeof tasks.$inferSelect;
 
-export async function createMission(ctx: OrchestratorContext, projectId: string, input: CreateMissionInput, userId: string | null) {
+export async function createMission(
+  ctx: OrchestratorContext,
+  projectId: string,
+  input: CreateMissionInput,
+  userId: string | null,
+) {
   const team = await activeAgents(ctx.db, projectId);
-  if (team.length === 0) throw new Error('Adicione pelo menos um agente antes de iniciar uma missão.');
+  if (team.length === 0)
+    throw new Error('Adicione pelo menos um agente antes de iniciar uma missão.');
   const planner = team.find((a) => a.role === 'strategist') ?? team[0]!;
   const [mission] = await ctx.db
     .insert(missions)
-    .values({ projectId, title: input.title, goal: input.goal, plannerAgentId: planner.id, createdBy: userId })
+    .values({
+      projectId,
+      title: input.title,
+      goal: input.goal,
+      plannerAgentId: planner.id,
+      createdBy: userId,
+    })
     .returning();
   const project = await ctx.db.query.projects.findFirst({ where: eq(projects.id, projectId) });
   await emitEvent(ctx, {
@@ -59,7 +71,9 @@ export function activeAgents(db: Database, projectId: string) {
 export async function planMission(ctx: OrchestratorContext, missionId: string): Promise<void> {
   const mission = await ctx.db.query.missions.findFirst({ where: eq(missions.id, missionId) });
   if (!mission || mission.status !== 'planning') return;
-  const project = (await ctx.db.query.projects.findFirst({ where: eq(projects.id, mission.projectId) }))!;
+  const project = (await ctx.db.query.projects.findFirst({
+    where: eq(projects.id, mission.projectId),
+  }))!;
   const team = await activeAgents(ctx.db, mission.projectId);
   const planner = team.find((a) => a.id === mission.plannerAgentId) ?? team[0];
   if (!planner) return failMission(ctx, mission, 'Nenhum agente disponível para planejar.');
@@ -73,7 +87,8 @@ export async function planMission(ctx: OrchestratorContext, missionId: string): 
       kind: 'plan',
       missionId,
       prompt: buildPlanningPrompt(mission.goal, roles),
-      demoOverrideText: (p) => `Plano estruturado (demonstração):\n\n${JSON.stringify(buildDemoPlan(mission.goal, roles), null, 2)}\n\n${p}`,
+      demoOverrideText: (p) =>
+        `Plano estruturado (demonstração):\n\n${JSON.stringify(buildDemoPlan(mission.goal, roles), null, 2)}\n\n${p}`,
     });
     plan = result.demo ? buildDemoPlan(mission.goal, roles) : parsePlan(result.text, roles);
   } catch (err) {
@@ -81,7 +96,11 @@ export async function planMission(ctx: OrchestratorContext, missionId: string): 
       await ctx.queue.enqueue({ kind: 'plan', missionId }, { delayMs: 2000 });
       return;
     }
-    return failMission(ctx, mission, `Falha no planejamento: ${err instanceof Error ? err.message : String(err)}`);
+    return failMission(
+      ctx,
+      mission,
+      `Falha no planejamento: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 
   await ctx.db.transaction(async (tx) => {
@@ -106,10 +125,14 @@ export async function planMission(ctx: OrchestratorContext, missionId: string): 
       keyToId.set(t.key, row!.id);
       for (const dep of t.dependsOn) {
         const depId = keyToId.get(dep);
-        if (depId) await tx.insert(taskDependencies).values({ taskId: row!.id, dependsOnTaskId: depId });
+        if (depId)
+          await tx.insert(taskDependencies).values({ taskId: row!.id, dependsOnTaskId: depId });
       }
     }
-    await tx.update(missions).set({ status: 'awaiting_plan_approval', planSummary: plan.summary }).where(eq(missions.id, missionId));
+    await tx
+      .update(missions)
+      .set({ status: 'awaiting_plan_approval', planSummary: plan.summary })
+      .where(eq(missions.id, missionId));
     await tx.insert(approvals).values({
       projectId: mission.projectId,
       missionId,
@@ -146,9 +169,15 @@ function pickAgent(team: Agent[], role: AgentRole): Agent | undefined {
   return candidates[0] ?? team.find((a) => a.role === role) ?? team[0];
 }
 
-async function failMission(ctx: OrchestratorContext, mission: typeof missions.$inferSelect, error: string) {
+async function failMission(
+  ctx: OrchestratorContext,
+  mission: typeof missions.$inferSelect,
+  error: string,
+) {
   await ctx.db.update(missions).set({ status: 'failed', error }).where(eq(missions.id, mission.id));
-  const project = await ctx.db.query.projects.findFirst({ where: eq(projects.id, mission.projectId) });
+  const project = await ctx.db.query.projects.findFirst({
+    where: eq(projects.id, mission.projectId),
+  });
   await emitEvent(ctx, {
     type: 'mission.failed',
     projectId: mission.projectId,
@@ -173,7 +202,9 @@ export async function resolveApproval(
     .where(and(eq(approvals.id, approvalId), eq(approvals.status, 'pending')))
     .returning();
   if (!approval) throw new Error('Aprovação não encontrada ou já resolvida.');
-  const project = (await ctx.db.query.projects.findFirst({ where: eq(projects.id, approval.projectId) }))!;
+  const project = (await ctx.db.query.projects.findFirst({
+    where: eq(projects.id, approval.projectId),
+  }))!;
   const demo = project.mode === 'demo';
   await emitEvent(ctx, {
     type: 'approval.resolved',
@@ -186,10 +217,23 @@ export async function resolveApproval(
   });
 
   if (approval.kind === 'mission_plan' && approval.missionId) {
-    if (decision === 'rejected') return cancelMission(ctx, approval.missionId, 'Plano rejeitado pelo diretor.');
-    await ctx.db.update(missions).set({ status: 'running' }).where(eq(missions.id, approval.missionId));
-    await emitEvent(ctx, { type: 'mission.started', projectId: approval.projectId, missionId: approval.missionId, demo, summary: 'Missão em execução', payload: {} });
-    const missionTasks = await ctx.db.query.tasks.findMany({ where: eq(tasks.missionId, approval.missionId) });
+    if (decision === 'rejected')
+      return cancelMission(ctx, approval.missionId, 'Plano rejeitado pelo diretor.');
+    await ctx.db
+      .update(missions)
+      .set({ status: 'running' })
+      .where(eq(missions.id, approval.missionId));
+    await emitEvent(ctx, {
+      type: 'mission.started',
+      projectId: approval.projectId,
+      missionId: approval.missionId,
+      demo,
+      summary: 'Missão em execução',
+      payload: {},
+    });
+    const missionTasks = await ctx.db.query.tasks.findMany({
+      where: eq(tasks.missionId, approval.missionId),
+    });
     for (const t of missionTasks) await refreshTaskReadiness(ctx, t.id);
     return;
   }
@@ -198,17 +242,41 @@ export async function resolveApproval(
     const task = await ctx.db.query.tasks.findFirst({ where: eq(tasks.id, approval.taskId) });
     if (!task) return;
     if (decision === 'approved') {
-      if (task.missionId) await ctx.db.update(missions).set({ status: 'running' }).where(and(eq(missions.id, task.missionId), eq(missions.status, 'awaiting_final_approval')));
+      if (task.missionId)
+        await ctx.db
+          .update(missions)
+          .set({ status: 'running' })
+          .where(
+            and(eq(missions.id, task.missionId), eq(missions.status, 'awaiting_final_approval')),
+          );
       await completeTask(ctx, task);
     } else if (task.attempts < task.maxAttempts) {
       // Rejection sends the task back with the director's feedback (bounded by maxAttempts).
-      if (task.missionId) await ctx.db.update(missions).set({ status: 'running' }).where(and(eq(missions.id, task.missionId), eq(missions.status, 'awaiting_final_approval')));
+      if (task.missionId)
+        await ctx.db
+          .update(missions)
+          .set({ status: 'running' })
+          .where(
+            and(eq(missions.id, task.missionId), eq(missions.status, 'awaiting_final_approval')),
+          );
       await ctx.db
         .update(tasks)
-        .set({ status: 'ready', instruction: `${task.instruction}\n\nFeedback do diretor: ${note ?? 'refazer com mais qualidade.'}` })
+        .set({
+          status: 'ready',
+          instruction: `${task.instruction}\n\nFeedback do diretor: ${note ?? 'refazer com mais qualidade.'}`,
+        })
         .where(eq(tasks.id, task.id));
       await setAgentStatus(ctx, task.assignedAgentId, 'idle');
-      await emitEvent(ctx, { type: 'task.retrying', projectId: task.projectId, taskId: task.id, missionId: task.missionId, agentId: task.assignedAgentId, demo, summary: `Tarefa "${task.title}" devolvida para ajustes`, payload: { reason: 'rejected' } });
+      await emitEvent(ctx, {
+        type: 'task.retrying',
+        projectId: task.projectId,
+        taskId: task.id,
+        missionId: task.missionId,
+        agentId: task.assignedAgentId,
+        demo,
+        summary: `Tarefa "${task.title}" devolvida para ajustes`,
+        payload: { reason: 'rejected' },
+      });
       await ctx.queue.enqueue({ kind: 'task', taskId: task.id });
     } else {
       await failTask(ctx, task, 'Resultado rejeitado e limite de tentativas atingido.');
@@ -216,7 +284,12 @@ export async function resolveApproval(
   }
 }
 
-export async function setAgentStatus(ctx: OrchestratorContext, agentId: string | null, status: Agent['status'], lastError?: string | null) {
+export async function setAgentStatus(
+  ctx: OrchestratorContext,
+  agentId: string | null,
+  status: Agent['status'],
+  lastError?: string | null,
+) {
   if (!agentId) return;
   await ctx.db
     .update(agents)
@@ -228,7 +301,9 @@ export async function setAgentStatus(ctx: OrchestratorContext, agentId: string |
 export async function refreshTaskReadiness(ctx: OrchestratorContext, taskId: string) {
   const task = await ctx.db.query.tasks.findFirst({ where: eq(tasks.id, taskId) });
   if (!task || !['pending', 'waiting_dependency'].includes(task.status)) return;
-  const mission = task.missionId ? await ctx.db.query.missions.findFirst({ where: eq(missions.id, task.missionId) }) : null;
+  const mission = task.missionId
+    ? await ctx.db.query.missions.findFirst({ where: eq(missions.id, task.missionId) })
+    : null;
   if (mission && mission.status !== 'running') return;
   const deps = await ctx.db
     .select({ status: tasks.status })
@@ -244,8 +319,19 @@ export async function refreshTaskReadiness(ctx: OrchestratorContext, taskId: str
     .where(and(eq(tasks.id, taskId), inArray(tasks.status, ['pending', 'waiting_dependency'])))
     .returning();
   if (updated && next === 'ready') {
-    const project = await ctx.db.query.projects.findFirst({ where: eq(projects.id, task.projectId) });
-    await emitEvent(ctx, { type: 'task.ready', projectId: task.projectId, taskId, missionId: task.missionId, agentId: task.assignedAgentId, demo: project?.mode === 'demo', summary: `Tarefa pronta: ${task.title}`, payload: {} });
+    const project = await ctx.db.query.projects.findFirst({
+      where: eq(projects.id, task.projectId),
+    });
+    await emitEvent(ctx, {
+      type: 'task.ready',
+      projectId: task.projectId,
+      taskId,
+      missionId: task.missionId,
+      agentId: task.assignedAgentId,
+      demo: project?.mode === 'demo',
+      summary: `Tarefa pronta: ${task.title}`,
+      payload: {},
+    });
     await ctx.queue.enqueue({ kind: 'task', taskId });
   }
 }
@@ -258,12 +344,32 @@ export async function completeTask(ctx: OrchestratorContext, task: Task) {
     .where(and(eq(tasks.id, task.id), inArray(tasks.status, ['running', 'awaiting_approval'])))
     .returning();
   if (!done) return;
-  const project = (await ctx.db.query.projects.findFirst({ where: eq(projects.id, task.projectId) }))!;
+  const project = (await ctx.db.query.projects.findFirst({
+    where: eq(projects.id, task.projectId),
+  }))!;
   const demo = project.mode === 'demo';
-  const agent = task.assignedAgentId ? await ctx.db.query.agents.findFirst({ where: eq(agents.id, task.assignedAgentId) }) : null;
+  const agent = task.assignedAgentId
+    ? await ctx.db.query.agents.findFirst({ where: eq(agents.id, task.assignedAgentId) })
+    : null;
   await setAgentStatus(ctx, task.assignedAgentId, 'idle', null);
-  await emitEvent(ctx, { type: 'task.completed', projectId: task.projectId, taskId: task.id, missionId: task.missionId, agentId: task.assignedAgentId, demo, summary: `${agent?.name ?? 'Agente'} concluiu "${task.title}"`, payload: { artifactId: done.resultArtifactId } });
-  await emitEvent(ctx, { type: 'agent.idle', projectId: task.projectId, agentId: task.assignedAgentId, demo, summary: `${agent?.name ?? 'Agente'} está disponível`, payload: {} });
+  await emitEvent(ctx, {
+    type: 'task.completed',
+    projectId: task.projectId,
+    taskId: task.id,
+    missionId: task.missionId,
+    agentId: task.assignedAgentId,
+    demo,
+    summary: `${agent?.name ?? 'Agente'} concluiu "${task.title}"`,
+    payload: { artifactId: done.resultArtifactId },
+  });
+  await emitEvent(ctx, {
+    type: 'agent.idle',
+    projectId: task.projectId,
+    agentId: task.assignedAgentId,
+    demo,
+    summary: `${agent?.name ?? 'Agente'} está disponível`,
+    payload: {},
+  });
 
   // Handoffs: share a scoped summary + artifact reference with each dependent task's agent.
   const dependents = await ctx.db
@@ -278,7 +384,9 @@ export async function completeTask(ctx: OrchestratorContext, task: Task) {
   const summary = await taskOutputSummary(ctx.db, task.id);
   for (const { task: dep } of dependents) {
     if (dep.status === 'cancelled') continue;
-    const toAgent = dep.assignedAgentId ? await ctx.db.query.agents.findFirst({ where: eq(agents.id, dep.assignedAgentId) }) : null;
+    const toAgent = dep.assignedAgentId
+      ? await ctx.db.query.agents.findFirst({ where: eq(agents.id, dep.assignedAgentId) })
+      : null;
     const [h] = await ctx.db
       .insert(handoffs)
       .values({
@@ -302,7 +410,12 @@ export async function completeTask(ctx: OrchestratorContext, task: Task) {
       agentId: task.assignedAgentId,
       demo,
       summary: `${agent?.name ?? 'Agente'} enviou "${task.title}" para ${toAgent?.name ?? 'a equipe'}`,
-      payload: { handoffId: h!.id, fromAgentId: task.assignedAgentId, toAgentId: dep.assignedAgentId, runId: lastRun?.id ?? null },
+      payload: {
+        handoffId: h!.id,
+        fromAgentId: task.assignedAgentId,
+        toAgentId: dep.assignedAgentId,
+        runId: lastRun?.id ?? null,
+      },
     });
     await refreshTaskReadiness(ctx, dep.id);
   }
@@ -326,11 +439,23 @@ async function maybeCompleteMission(ctx: OrchestratorContext, missionId: string)
   const [m] = await ctx.db
     .update(missions)
     .set({ status: 'completed', completedAt: new Date() })
-    .where(and(eq(missions.id, missionId), inArray(missions.status, ['running', 'awaiting_final_approval'])))
+    .where(
+      and(
+        eq(missions.id, missionId),
+        inArray(missions.status, ['running', 'awaiting_final_approval']),
+      ),
+    )
     .returning();
   if (!m) return;
   const project = await ctx.db.query.projects.findFirst({ where: eq(projects.id, m.projectId) });
-  await emitEvent(ctx, { type: 'mission.completed', projectId: m.projectId, missionId, demo: project?.mode === 'demo', summary: `Missão concluída: ${m.title}`, payload: { tasks: all.length } });
+  await emitEvent(ctx, {
+    type: 'mission.completed',
+    projectId: m.projectId,
+    missionId,
+    demo: project?.mode === 'demo',
+    summary: `Missão concluída: ${m.title}`,
+    payload: { tasks: all.length },
+  });
 }
 
 export async function failTask(ctx: OrchestratorContext, task: Task, error: string) {
@@ -340,34 +465,85 @@ export async function failTask(ctx: OrchestratorContext, task: Task, error: stri
     const [m] = await ctx.db
       .update(missions)
       .set({ status: 'failed', error: `Tarefa "${task.title}" falhou.` })
-      .where(and(eq(missions.id, task.missionId), inArray(missions.status, ['running', 'awaiting_final_approval'])))
+      .where(
+        and(
+          eq(missions.id, task.missionId),
+          inArray(missions.status, ['running', 'awaiting_final_approval']),
+        ),
+      )
       .returning();
     if (m) {
       const p = await ctx.db.query.projects.findFirst({ where: eq(projects.id, task.projectId) });
-      await emitEvent(ctx, { type: 'mission.failed', projectId: task.projectId, missionId: m.id, demo: p?.mode === 'demo', summary: `Missão "${m.title}" interrompida: tarefa falhou (é possível reexecutá-la).`, payload: {} });
+      await emitEvent(ctx, {
+        type: 'mission.failed',
+        projectId: task.projectId,
+        missionId: m.id,
+        demo: p?.mode === 'demo',
+        summary: `Missão "${m.title}" interrompida: tarefa falhou (é possível reexecutá-la).`,
+        payload: {},
+      });
     }
   }
   const project = await ctx.db.query.projects.findFirst({ where: eq(projects.id, task.projectId) });
-  await emitEvent(ctx, { type: 'task.failed', projectId: task.projectId, taskId: task.id, missionId: task.missionId, agentId: task.assignedAgentId, demo: project?.mode === 'demo', summary: `Tarefa "${task.title}" falhou: ${error}`, payload: { error } });
+  await emitEvent(ctx, {
+    type: 'task.failed',
+    projectId: task.projectId,
+    taskId: task.id,
+    missionId: task.missionId,
+    agentId: task.assignedAgentId,
+    demo: project?.mode === 'demo',
+    summary: `Tarefa "${task.title}" falhou: ${error}`,
+    payload: { error },
+  });
 }
 
 export async function cancelMission(ctx: OrchestratorContext, missionId: string, reason: string) {
   const [m] = await ctx.db
     .update(missions)
     .set({ status: 'cancelled', error: reason })
-    .where(and(eq(missions.id, missionId), inArray(missions.status, ['planning', 'awaiting_plan_approval', 'running', 'awaiting_final_approval'])))
+    .where(
+      and(
+        eq(missions.id, missionId),
+        inArray(missions.status, [
+          'planning',
+          'awaiting_plan_approval',
+          'running',
+          'awaiting_final_approval',
+        ]),
+      ),
+    )
     .returning();
   if (!m) return;
   await ctx.db
     .update(tasks)
     .set({ status: 'cancelled' })
-    .where(and(eq(tasks.missionId, missionId), inArray(tasks.status, ['pending', 'ready', 'waiting_dependency', 'awaiting_approval'])));
-  await ctx.db.update(approvals).set({ status: 'rejected', note: reason, resolvedAt: new Date() }).where(and(eq(approvals.missionId, missionId), eq(approvals.status, 'pending')));
+    .where(
+      and(
+        eq(tasks.missionId, missionId),
+        inArray(tasks.status, ['pending', 'ready', 'waiting_dependency', 'awaiting_approval']),
+      ),
+    );
+  await ctx.db
+    .update(approvals)
+    .set({ status: 'rejected', note: reason, resolvedAt: new Date() })
+    .where(and(eq(approvals.missionId, missionId), eq(approvals.status, 'pending')));
   // Running tasks are interrupted cooperatively.
-  const running = await ctx.db.query.agentRuns.findMany({ where: and(eq(agentRuns.missionId, missionId), inArray(agentRuns.status, ['queued', 'running'])) });
+  const running = await ctx.db.query.agentRuns.findMany({
+    where: and(
+      eq(agentRuns.missionId, missionId),
+      inArray(agentRuns.status, ['queued', 'running']),
+    ),
+  });
   for (const r of running) await requestRunCancel(ctx, r.id);
   const project = await ctx.db.query.projects.findFirst({ where: eq(projects.id, m.projectId) });
-  await emitEvent(ctx, { type: 'mission.cancelled', projectId: m.projectId, missionId, demo: project?.mode === 'demo', summary: `Missão cancelada: ${m.title}`, payload: { reason } });
+  await emitEvent(ctx, {
+    type: 'mission.cancelled',
+    projectId: m.projectId,
+    missionId,
+    demo: project?.mode === 'demo',
+    summary: `Missão cancelada: ${m.title}`,
+    payload: { reason },
+  });
 }
 
 export async function requestRunCancel(ctx: OrchestratorContext, runId: string) {
@@ -384,7 +560,10 @@ export async function retryTask(ctx: OrchestratorContext, taskId: string) {
     .returning();
   if (!t) throw new Error('Somente tarefas com falha podem ser reexecutadas.');
   if (t.missionId) {
-    await ctx.db.update(missions).set({ status: 'running', error: null }).where(and(eq(missions.id, t.missionId), eq(missions.status, 'failed')));
+    await ctx.db
+      .update(missions)
+      .set({ status: 'running', error: null })
+      .where(and(eq(missions.id, t.missionId), eq(missions.status, 'failed')));
   }
   await ctx.queue.enqueue({ kind: 'task', taskId });
   return t;

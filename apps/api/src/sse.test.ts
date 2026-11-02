@@ -16,7 +16,12 @@ afterAll(async () => {
   await t.h.close();
 });
 
-async function readEvents(url: string, cookie: string, headers: Record<string, string>, until: (ids: string[]) => boolean) {
+async function readEvents(
+  url: string,
+  cookie: string,
+  headers: Record<string, string>,
+  until: (ids: string[]) => boolean,
+) {
   const controller = new AbortController();
   const res = await fetch(url, { headers: { cookie, ...headers }, signal: controller.signal });
   expect(res.headers.get('content-type')).toContain('text/event-stream');
@@ -49,18 +54,38 @@ async function readEvents(url: string, cookie: string, headers: Record<string, s
 describe('SSE stream', () => {
   it('replays from Last-Event-ID, streams live events and never duplicates', async () => {
     const cookie = await signUp(t.app, 'sse@test.dev');
-    const create = await fetch(`${base}/api/projects`, { method: 'POST', headers: { cookie, 'content-type': 'application/json' }, body: JSON.stringify({ name: 'S', mode: 'demo' }) });
+    const create = await fetch(`${base}/api/projects`, {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'S', mode: 'demo' }),
+    });
     const p = await create.json();
     // 5 agent.created events exist already (ids 1..5 in this fresh DB, project-scoped).
-    const first = await readEvents(`${base}/api/projects/${p.id}/events/stream`, cookie, {}, (ids) => ids.length >= 5);
+    const first = await readEvents(
+      `${base}/api/projects/${p.id}/events/stream`,
+      cookie,
+      {},
+      (ids) => ids.length >= 5,
+    );
     expect(first.types.every((x) => x === 'agent.created')).toBe(true);
     const lastSeen = first.ids[2]!;
 
     // Reconnect with Last-Event-ID: only newer events, then a live one.
     setTimeout(() => {
-      void emitEvent(t.orch, { type: 'task.started', projectId: p.id, demo: true, summary: 'live', payload: {} });
+      void emitEvent(t.orch, {
+        type: 'task.started',
+        projectId: p.id,
+        demo: true,
+        summary: 'live',
+        payload: {},
+      });
     }, 300);
-    const second = await readEvents(`${base}/api/projects/${p.id}/events/stream`, cookie, { 'last-event-id': lastSeen }, (ids) => ids.length >= 3);
+    const second = await readEvents(
+      `${base}/api/projects/${p.id}/events/stream`,
+      cookie,
+      { 'last-event-id': lastSeen },
+      (ids) => ids.length >= 3,
+    );
     expect(second.ids).toEqual([first.ids[3], first.ids[4], expect.any(String)]);
     expect(second.types.at(-1)).toBe('task.started');
     expect(new Set(second.ids).size).toBe(second.ids.length);

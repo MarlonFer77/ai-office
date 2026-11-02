@@ -1,4 +1,13 @@
-import { Bot, Building2, FolderKanban, History, Library, ListChecks, PackageCheck, Settings } from 'lucide-react';
+import {
+  Bot,
+  Building2,
+  FolderKanban,
+  History,
+  Library,
+  ListChecks,
+  PackageCheck,
+  Settings,
+} from 'lucide-react';
 
 export const NAV = [
   { href: '/office', label: 'Escritório', icon: Building2 },

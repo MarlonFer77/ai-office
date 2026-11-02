@@ -22,7 +22,13 @@ const app = await buildApp({
   auth: createAuth(db, env),
   hub,
   storage: createStorage(env),
-  orch: { db, redis: publisher, queue, config: { encryptionKey: env.ENCRYPTION_KEY, demoChunkDelayMs: env.DEMO_CHUNK_DELAY_MS }, logger: console },
+  orch: {
+    db,
+    redis: publisher,
+    queue,
+    config: { encryptionKey: env.ENCRYPTION_KEY, demoChunkDelayMs: env.DEMO_CHUNK_DELAY_MS },
+    logger: console,
+  },
 });
 
 const shutdown = async () => {

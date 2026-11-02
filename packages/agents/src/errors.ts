@@ -28,11 +28,36 @@ export function isRetryable(err: unknown): boolean {
 
 /** Shared mapping from HTTP status to a normalised error. */
 export function errorFromStatus(status: number | undefined, message: string): ProviderError {
-  if (status === 401 || status === 403) return new ProviderError('auth', 'Credenciais inválidas ou sem permissão no provedor.', false, status);
-  if (status === 429) return new ProviderError('rate_limit', 'Limite de requisições do provedor atingido.', true, status);
-  if (status === 404) return new ProviderError('not_found', `Modelo ou recurso não encontrado: ${message}`, false, status);
-  if (status === 400 || status === 422) return new ProviderError('bad_request', `Requisição rejeitada pelo provedor: ${message}`, false, status);
-  if (status !== undefined && status >= 500) return new ProviderError('unavailable', 'Provedor indisponível no momento.', true, status);
+  if (status === 401 || status === 403)
+    return new ProviderError(
+      'auth',
+      'Credenciais inválidas ou sem permissão no provedor.',
+      false,
+      status,
+    );
+  if (status === 429)
+    return new ProviderError(
+      'rate_limit',
+      'Limite de requisições do provedor atingido.',
+      true,
+      status,
+    );
+  if (status === 404)
+    return new ProviderError(
+      'not_found',
+      `Modelo ou recurso não encontrado: ${message}`,
+      false,
+      status,
+    );
+  if (status === 400 || status === 422)
+    return new ProviderError(
+      'bad_request',
+      `Requisição rejeitada pelo provedor: ${message}`,
+      false,
+      status,
+    );
+  if (status !== undefined && status >= 500)
+    return new ProviderError('unavailable', 'Provedor indisponível no momento.', true, status);
   return new ProviderError('unknown', message, true, status);
 }
 

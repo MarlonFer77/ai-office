@@ -1,9 +1,17 @@
-import { createDb, runMigrations, users, workspaces, workspaceMembers, type DbHandle } from '@ai-office/database';
+import {
+  createDb,
+  runMigrations,
+  users,
+  workspaces,
+  workspaceMembers,
+  type DbHandle,
+} from '@ai-office/database';
 import type { GenerateRequest, GenerateResult, ProviderAdapter } from '@ai-office/agents';
 import { MemoryJobQueue } from './queue.js';
 import { silentLogger, type OrchestratorContext } from './context.js';
 
-export const TEST_DB_URL = process.env.TEST_DATABASE_URL ?? 'postgres://aioffice:aioffice@localhost:5432/aioffice_test';
+export const TEST_DB_URL =
+  process.env.TEST_DATABASE_URL ?? 'postgres://aioffice:aioffice@localhost:5432/aioffice_test';
 
 let handle: DbHandle | undefined;
 export async function testDb() {
@@ -34,12 +42,21 @@ export class ScriptedAdapter implements ProviderAdapter {
   readonly id = 'anthropic' as const;
   readonly demo = false;
   calls: GenerateRequest[] = [];
-  constructor(private readonly respond: (req: GenerateRequest, n: number) => Promise<string> | string = (r) => `eco: ${r.messages.at(-1)?.content.slice(0, 40)}`) {}
+  constructor(
+    private readonly respond: (req: GenerateRequest, n: number) => Promise<string> | string = (r) =>
+      `eco: ${r.messages.at(-1)?.content.slice(0, 40)}`,
+  ) {}
   async generate(req: GenerateRequest): Promise<GenerateResult> {
     this.calls.push({ ...req, messages: [...req.messages] });
     const text = await this.respond(req, this.calls.length);
     req.onDelta?.(text);
-    return { text, usage: { inputTokens: 100, outputTokens: 50, cacheReadTokens: 0, cacheWriteTokens: 0 }, stopReason: 'end_turn', model: req.model, demo: false };
+    return {
+      text,
+      usage: { inputTokens: 100, outputTokens: 50, cacheReadTokens: 0, cacheWriteTokens: 0 },
+      stopReason: 'end_turn',
+      model: req.model,
+      demo: false,
+    };
   }
   async listModels() {
     return [];

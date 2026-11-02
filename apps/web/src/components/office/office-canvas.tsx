@@ -43,18 +43,34 @@ export default function OfficeCanvas(props: OfficeCanvasProps) {
   const wrap = useRef<HTMLDivElement>(null);
   return (
     <div ref={wrap} className="absolute inset-0 touch-none" aria-hidden="true">
-      <Application resizeTo={wrap} background={0x0a0913} antialias autoDensity resolution={typeof window !== 'undefined' ? Math.min(2, window.devicePixelRatio) : 1}>
+      <Application
+        resizeTo={wrap}
+        background={0x0a0913}
+        antialias
+        autoDensity
+        resolution={typeof window !== 'undefined' ? Math.min(2, window.devicePixelRatio) : 1}
+      >
         <Scene {...props} />
       </Application>
     </div>
   );
 }
 
-function Scene({ rooms, agents, selectedAgentId, selectedRoomId, onSelectAgent, onSelectRoom, controls }: OfficeCanvasProps) {
+function Scene({
+  rooms,
+  agents,
+  selectedAgentId,
+  selectedRoomId,
+  onSelectAgent,
+  onSelectRoom,
+  controls,
+}: OfficeCanvasProps) {
   const { app } = useApplication();
   const world = useRef<Container>(null);
   const userMoved = useRef(false);
-  const drag = useRef<{ x: number; y: number; ox: number; oy: number; moved: boolean } | null>(null);
+  const drag = useRef<{ x: number; y: number; ox: number; oy: number; moved: boolean } | null>(
+    null,
+  );
   const pinch = useRef<Map<number, { x: number; y: number }>>(new Map());
   const [hoverRoom, setHoverRoom] = useState<string | null>(null);
   const [hoverAgent, setHoverAgent] = useState<string | null>(null);
@@ -94,7 +110,11 @@ function Scene({ rooms, agents, selectedAgentId, selectedRoomId, onSelectAgent, 
   );
 
   useEffect(() => {
-    controls.current = { zoomIn: () => zoomAt(1.2), zoomOut: () => zoomAt(1 / 1.2), fit: () => ((userMoved.current = false), fit()) };
+    controls.current = {
+      zoomIn: () => zoomAt(1.2),
+      zoomOut: () => zoomAt(1 / 1.2),
+      fit: () => ((userMoved.current = false), fit()),
+    };
   }, [controls, zoomAt, fit]);
 
   // Initial fit + refit on resize while the user hasn't moved the camera.
@@ -130,13 +150,15 @@ function Scene({ rooms, agents, selectedAgentId, selectedRoomId, onSelectAgent, 
         pinch.current.set(e.pointerId, { x: e.global.x, y: e.global.y });
         const after = [...pinch.current.values()];
         const dist = Math.hypot(after[0]!.x - after[1]!.x, after[0]!.y - after[1]!.y);
-        if (before > 0) zoomAt(dist / before, (after[0]!.x + after[1]!.x) / 2, (after[0]!.y + after[1]!.y) / 2);
+        if (before > 0)
+          zoomAt(dist / before, (after[0]!.x + after[1]!.x) / 2, (after[0]!.y + after[1]!.y) / 2);
         if (drag.current) drag.current.moved = true;
         return;
       }
       const d = drag.current;
       if (!d) return;
-      const dx = e.global.x - d.x, dy = e.global.y - d.y;
+      const dx = e.global.x - d.x,
+        dy = e.global.y - d.y;
       if (!d.moved && Math.hypot(dx, dy) < 5) return;
       d.moved = true;
       userMoved.current = true;
@@ -167,8 +189,20 @@ function Scene({ rooms, agents, selectedAgentId, selectedRoomId, onSelectAgent, 
   }, [app, zoomAt]);
 
   const wasDrag = () => Boolean(drag.current?.moved);
-  const sortedRooms = useMemo(() => [...rooms].sort((a, b) => depthOf(a.gridX, a.gridY) - depthOf(b.gridX, b.gridY)), [rooms]);
-  const labelStyle = useMemo(() => ({ fontFamily: uiFont(), fontSize: 13, fontWeight: '600' as const, fill: 0xf3f0ff, letterSpacing: 0.2 }), []);
+  const sortedRooms = useMemo(
+    () => [...rooms].sort((a, b) => depthOf(a.gridX, a.gridY) - depthOf(b.gridX, b.gridY)),
+    [rooms],
+  );
+  const labelStyle = useMemo(
+    () => ({
+      fontFamily: uiFont(),
+      fontSize: 13,
+      fontWeight: '600' as const,
+      fill: 0xf3f0ff,
+      letterSpacing: 0.2,
+    }),
+    [],
+  );
   const subStyle = useMemo(() => ({ fontFamily: uiFont(), fontSize: 10, fill: 0x9a93b8 }), []);
 
   return (
@@ -190,15 +224,28 @@ function Scene({ rooms, agents, selectedAgentId, selectedRoomId, onSelectAgent, 
               onPointerOut={() => setHoverRoom((h) => (h === room.id ? null : h))}
               draw={(g) => {
                 g.clear();
-                drawRoomShell(g, room, { hovered: hoverRoom === room.id, selected: selectedRoomId === room.id });
+                drawRoomShell(g, room, {
+                  hovered: hoverRoom === room.id,
+                  selected: selectedRoomId === room.id,
+                });
               }}
             />
             {furnitureForRoom(room).map((f, i) => (
-              <pixiGraphics key={`f${i}`} zIndex={Math.round(depthOf(f.tx + (f.w ?? 0.4), f.ty + (f.d ?? 0.4)) * 100)} draw={(g) => (g.clear(), drawFurniture(g, f, accent, active))} />
+              <pixiGraphics
+                key={`f${i}`}
+                zIndex={Math.round(depthOf(f.tx + (f.w ?? 0.4), f.ty + (f.d ?? 0.4)) * 100)}
+                draw={(g) => (g.clear(), drawFurniture(g, f, accent, active))}
+              />
             ))}
             {roomAgents.map((a) => {
               const seat = seats.get(a.id)!;
-              const visual = visuals[a.id] ?? { id: a.id, status: a.status, caption: null, lastActivityAt: 0, demo: a.provider === 'demo' };
+              const visual = visuals[a.id] ?? {
+                id: a.id,
+                status: a.status,
+                caption: null,
+                lastActivityAt: 0,
+                demo: a.provider === 'demo',
+              };
               const pos = positions.get(a.id)!;
               const screen =
                 visual.status === 'running'
@@ -207,10 +254,17 @@ function Scene({ rooms, agents, selectedAgentId, selectedRoomId, onSelectAgent, 
                     ? { color: 0xf43f5e, alpha: 0.9 }
                     : visual.status === 'awaiting_approval'
                       ? { color: 0xfbbf24, alpha: 0.8 }
-                      : { color: STATUS_COLORS.queued, alpha: visual.status === 'paused' ? 0.1 : 0.35 };
+                      : {
+                          color: STATUS_COLORS.queued,
+                          alpha: visual.status === 'paused' ? 0.1 : 0.35,
+                        };
               return [
                 room.kind !== 'meeting' && (
-                  <pixiGraphics key={`d-${a.id}`} zIndex={Math.round(depthOf(seat.deskTx + 1.4, seat.deskTy + 0.75) * 100)} draw={(g) => (g.clear(), drawDesk(g, seat.deskTx, seat.deskTy, screen))} />
+                  <pixiGraphics
+                    key={`d-${a.id}`}
+                    zIndex={Math.round(depthOf(seat.deskTx + 1.4, seat.deskTy + 0.75) * 100)}
+                    draw={(g) => (g.clear(), drawDesk(g, seat.deskTx, seat.deskTy, screen))}
+                  />
                 ),
                 <Robot
                   key={`r-${a.id}`}
@@ -236,21 +290,49 @@ function Scene({ rooms, agents, selectedAgentId, selectedRoomId, onSelectAgent, 
         const accent = Number.parseInt(room.theme.accent.slice(1), 16);
         // Label sits on top of the left back wall, away from the desks.
         const labelPos = tileToScreen(room.gridX, room.gridY + room.depth * 0.55);
-        const busyCount = roomAgents.filter((a) => (visuals[a.id]?.status ?? a.status) === 'running').length;
+        const busyCount = roomAgents.filter(
+          (a) => (visuals[a.id]?.status ?? a.status) === 'running',
+        ).length;
         return (
-          <pixiContainer key={`label-${room.id}`} x={labelPos.x} y={labelPos.y - WALL_H - 18} zIndex={200000 + depthOf(room.gridX, room.gridY)} eventMode="static" cursor="pointer" onPointerTap={() => !wasDrag() && onSelectRoom(room.id)}>
-              <pixiGraphics
-                draw={(g) => {
-                  g.clear();
-                  const w = room.name.length * 7.4 + 34;
-                  g.roundRect(-w / 2, -12, w, 30, 10).fill({ color: 0x0b0a14, alpha: 0.82 });
-                  g.roundRect(-w / 2, -12, w, 30, 10).stroke({ width: 1, color: accent, alpha: selectedRoomId === room.id ? 0.95 : 0.45 });
-                  g.circle(-w / 2 + 11, 3, 3.5).fill({ color: busyCount ? accent : 0x4b4566 });
-                }}
-              />
-              <pixiText text={room.name} anchor={{ x: 0.5, y: 0 }} x={6} y={-9} style={labelStyle} resolution={2} />
-              <pixiText text={`${roomAgents.length} agente(s)${busyCount ? ` · ${busyCount} ativo(s)` : ''}`} anchor={{ x: 0.5, y: 0 }} x={6} y={5} style={subStyle} resolution={2} />
-            </pixiContainer>
+          <pixiContainer
+            key={`label-${room.id}`}
+            x={labelPos.x}
+            y={labelPos.y - WALL_H - 18}
+            zIndex={200000 + depthOf(room.gridX, room.gridY)}
+            eventMode="static"
+            cursor="pointer"
+            onPointerTap={() => !wasDrag() && onSelectRoom(room.id)}
+          >
+            <pixiGraphics
+              draw={(g) => {
+                g.clear();
+                const w = room.name.length * 7.4 + 34;
+                g.roundRect(-w / 2, -12, w, 30, 10).fill({ color: 0x0b0a14, alpha: 0.82 });
+                g.roundRect(-w / 2, -12, w, 30, 10).stroke({
+                  width: 1,
+                  color: accent,
+                  alpha: selectedRoomId === room.id ? 0.95 : 0.45,
+                });
+                g.circle(-w / 2 + 11, 3, 3.5).fill({ color: busyCount ? accent : 0x4b4566 });
+              }}
+            />
+            <pixiText
+              text={room.name}
+              anchor={{ x: 0.5, y: 0 }}
+              x={6}
+              y={-9}
+              style={labelStyle}
+              resolution={2}
+            />
+            <pixiText
+              text={`${roomAgents.length} agente(s)${busyCount ? ` · ${busyCount} ativo(s)` : ''}`}
+              anchor={{ x: 0.5, y: 0 }}
+              x={6}
+              y={5}
+              style={subStyle}
+              resolution={2}
+            />
+          </pixiContainer>
         );
       })}
       <EffectsLayer positions={positions} />

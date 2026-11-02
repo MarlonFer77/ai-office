@@ -17,7 +17,12 @@ export async function streamRoutes(app: FastifyInstance, deps: AppDeps) {
   app.get('/projects/:id/events/stream', async (req, reply) => {
     const project = await loadProject(deps, req, idParams(req.params));
     const header = req.headers['last-event-id'];
-    const since = Number((Array.isArray(header) ? header[0] : header) ?? (req.query as { since?: string }).since ?? 0) || 0;
+    const since =
+      Number(
+        (Array.isArray(header) ? header[0] : header) ??
+          (req.query as { since?: string }).since ??
+          0,
+      ) || 0;
 
     reply.hijack();
     const res = reply.raw;
@@ -43,7 +48,9 @@ export async function streamRoutes(app: FastifyInstance, deps: AppDeps) {
         res.write(`event: office\ndata: ${JSON.stringify(e)}\n\n`);
       }
     };
-    const unsubscribe = deps.hub.subscribe(project.id, (e) => (replaying ? buffer.push(e) : write(e)));
+    const unsubscribe = deps.hub.subscribe(project.id, (e) =>
+      replaying ? buffer.push(e) : write(e),
+    );
 
     const rows = await deps.db.query.events.findMany({
       where: and(eq(events.projectId, project.id), gt(events.id, since)),
@@ -51,7 +58,12 @@ export async function streamRoutes(app: FastifyInstance, deps: AppDeps) {
       limit: 500,
     });
     for (const r of rows) {
-      write({ ...r, id: String(r.id), type: r.type as OfficeEvent['type'], createdAt: r.createdAt.toISOString() });
+      write({
+        ...r,
+        id: String(r.id),
+        type: r.type as OfficeEvent['type'],
+        createdAt: r.createdAt.toISOString(),
+      });
     }
     replaying = false;
     for (const e of buffer.splice(0)) write(e);

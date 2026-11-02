@@ -10,7 +10,11 @@ export function Markdown({ children }: { children: string }) {
         remarkPlugins={[remarkGfm]}
         skipHtml
         urlTransform={(url) => (/^(https?:|mailto:|#)/i.test(url) ? url : '')}
-        components={{ a: ({ node: _n, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer nofollow" /> }}
+        components={{
+          a: ({ node: _n, ...props }) => (
+            <a {...props} target="_blank" rel="noopener noreferrer nofollow" />
+          ),
+        }}
       >
         {children}
       </ReactMarkdown>

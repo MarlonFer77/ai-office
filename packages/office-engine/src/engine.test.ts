@@ -2,9 +2,26 @@ import { describe, expect, it } from 'vitest';
 import { ROOM_BLUEPRINTS, type OfficeEvent } from '@ai-office/shared';
 import { applyEvent, arcPoint, initialSceneState, tickScene } from './scene-state.js';
 import { assignSeats, seatsForRoom } from './layout.js';
-import { fitCamera, pointInPolygon, rectPolygon, screenToTile, tileToScreen, worldBounds } from './iso.js';
+import {
+  fitCamera,
+  pointInPolygon,
+  rectPolygon,
+  screenToTile,
+  tileToScreen,
+  worldBounds,
+} from './iso.js';
 
-const ev = (p: Partial<OfficeEvent>): OfficeEvent => ({ id: '1', type: 'agent.started', projectId: 'p', agentId: 'a', demo: false, summary: '', payload: {}, createdAt: '', ...p });
+const ev = (p: Partial<OfficeEvent>): OfficeEvent => ({
+  id: '1',
+  type: 'agent.started',
+  projectId: 'p',
+  agentId: 'a',
+  demo: false,
+  summary: '',
+  payload: {},
+  createdAt: '',
+  ...p,
+});
 const rooms = ROOM_BLUEPRINTS.map((r, i) => ({ ...r, id: `r${i}` }));
 
 describe('iso math', () => {
@@ -53,7 +70,11 @@ describe('scene reducer', () => {
   it('reflects real run lifecycle events', () => {
     let s = applyEvent(base, ev({ type: 'agent.started', payload: { kind: 'task' } }), 0);
     expect(s.agents.a!.status).toBe('running');
-    s = applyEvent(s, ev({ id: '2', type: 'agent.tool.started', payload: { tool: 'list_project_artifacts' } }), 1);
+    s = applyEvent(
+      s,
+      ev({ id: '2', type: 'agent.tool.started', payload: { tool: 'list_project_artifacts' } }),
+      1,
+    );
     expect(s.agents.a!.caption).toContain('list_project_artifacts');
     s = applyEvent(s, ev({ id: '3', type: 'approval.requested' }), 2);
     expect(s.agents.a!.status).toBe('awaiting_approval');
@@ -63,14 +84,25 @@ describe('scene reducer', () => {
     expect(s.lastEventId).toBe('4');
   });
   it('animates handoffs between known agents only and expires them', () => {
-    const s = applyEvent(base, ev({ id: '9', type: 'handoff.created', payload: { fromAgentId: 'a', toAgentId: 'b' } }), 1000);
+    const s = applyEvent(
+      base,
+      ev({ id: '9', type: 'handoff.created', payload: { fromAgentId: 'a', toAgentId: 'b' } }),
+      1000,
+    );
     expect(s.handoffs).toHaveLength(1);
     expect(tickScene(s, 1000 + 5000).handoffs).toHaveLength(0);
-    const unknown = applyEvent(base, ev({ type: 'handoff.created', payload: { fromAgentId: 'a', toAgentId: 'zzz' } }), 0);
+    const unknown = applyEvent(
+      base,
+      ev({ type: 'handoff.created', payload: { fromAgentId: 'a', toAgentId: 'zzz' } }),
+      0,
+    );
     expect(unknown.handoffs).toHaveLength(0);
   });
   it('ignores events for agents not in the scene and does not move the cursor on deltas', () => {
-    const s = applyEvent(base, ev({ id: 'delta:r:1', type: 'agent.message.delta', agentId: 'ghost' }));
+    const s = applyEvent(
+      base,
+      ev({ id: 'delta:r:1', type: 'agent.message.delta', agentId: 'ghost' }),
+    );
     expect(s.agents).toEqual(base.agents);
     expect(s.lastEventId).toBeNull();
   });

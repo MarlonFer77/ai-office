@@ -20,6 +20,9 @@ export function createAuth(db: Database, env: Env) {
     advanced: {
       useSecureCookies: env.NODE_ENV === 'production',
       defaultCookieAttributes: { httpOnly: true, sameSite: 'lax' },
+      // Requests arrive through the Next.js proxy (or a load balancer) which sets
+      // X-Forwarded-For; rate limiting is keyed per client IP, not one shared bucket.
+      ipAddress: { ipAddressHeaders: ['x-forwarded-for', 'x-real-ip'] },
     },
     rateLimit: { enabled: env.NODE_ENV !== 'test', window: 60, max: 30 },
     telemetry: { enabled: false },

@@ -1,4 +1,16 @@
-import { AlertTriangle, ArrowRightLeft, Bell, Bot, CheckCircle2, FileText, Flag, Play, Wrench, XCircle, type LucideIcon } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowRightLeft,
+  Bell,
+  Bot,
+  CheckCircle2,
+  FileText,
+  Flag,
+  Play,
+  Wrench,
+  XCircle,
+  type LucideIcon,
+} from 'lucide-react';
 import { EVENT_SEVERITY, type EventType } from '@ai-office/shared';
 import { cn } from '@ai-office/ui';
 import { timeAgo } from '@/lib/format';
@@ -20,7 +32,12 @@ const ICONS: Partial<Record<EventType, LucideIcon>> = {
   'mission.created': Flag,
   'mission.completed': Flag,
 };
-const TONE = { info: 'text-primary-soft bg-primary/10', success: 'text-success bg-success/10', warning: 'text-warning bg-warning/10', error: 'text-destructive bg-destructive/10' };
+const TONE = {
+  info: 'text-primary-soft bg-primary/10',
+  success: 'text-success bg-success/10',
+  warning: 'text-warning bg-warning/10',
+  error: 'text-destructive bg-destructive/10',
+};
 
 export function EventItem({ event, compact = false }: { event: OfficeEvent; compact?: boolean }) {
   const Icon = ICONS[event.type] ?? Bot;

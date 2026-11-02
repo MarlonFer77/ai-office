@@ -13,5 +13,10 @@ export function useCurrentProject() {
   useEffect(() => {
     if (projects.isSuccess && current && current.id !== projectId) setProjectId(current.id);
   }, [projects.isSuccess, current, projectId, setProjectId]);
-  return { project: current, projects: list, isLoading: projects.isLoading, isEmpty: projects.isSuccess && list.length === 0 };
+  return {
+    project: current,
+    projects: list,
+    isLoading: projects.isLoading,
+    isEmpty: projects.isSuccess && list.length === 0,
+  };
 }

@@ -6,7 +6,12 @@ import { robotPalette, STATUS_COLORS, type AgentVisual } from '@ai-office/office
 import { shade } from './draw';
 import { uiFont } from './font';
 
-const NAME_STYLE: TextStyleOptions = { fontFamily: uiFont(), fontSize: 11, fontWeight: '600', fill: 0xf3f0ff };
+const NAME_STYLE: TextStyleOptions = {
+  fontFamily: uiFont(),
+  fontSize: 11,
+  fontWeight: '600',
+  fill: 0xf3f0ff,
+};
 const CAPTION_STYLE: TextStyleOptions = { fontFamily: uiFont(), fontSize: 9.5, fill: 0xc4b5fd };
 const noop = () => undefined;
 const HIT = new Rectangle(-24, -112, 48, 116);
@@ -29,7 +34,18 @@ interface RobotProps {
  * idle = still (only a slow blink), running = typing + activity dots,
  * awaiting approval = bell badge, error = alert badge, paused = dimmed.
  */
-export function Robot({ x, y, zIndex, name, seed, visual, selected, hovered, onSelect, onHover }: RobotProps) {
+export function Robot({
+  x,
+  y,
+  zIndex,
+  name,
+  seed,
+  visual,
+  selected,
+  hovered,
+  onSelect,
+  onHover,
+}: RobotProps) {
   const pal = robotPalette(seed);
   const bodyRef = useRef<Container>(null);
   const armsRef = useRef<Graphics>(null);
@@ -53,12 +69,16 @@ export function Robot({ x, y, zIndex, name, seed, visual, selected, hovered, onS
           if (running) {
             for (let i = 0; i < 3; i++) {
               const a = 0.35 + 0.65 * Math.max(0, Math.sin(time * 6 - i * 0.8));
-              dotsRef.current.circle(-7 + i * 7, -124, 2.2).fill({ color: 0xffffff, alpha: a });
+              dotsRef.current.circle(-7 + i * 7, -148, 2.2).fill({ color: 0xffffff, alpha: a });
             }
           }
         }
         if (ringRef.current) {
-          ringRef.current.alpha = running ? 0.55 + Math.sin(time * 3) * 0.25 : selected || hovered ? 0.8 : 0.45;
+          ringRef.current.alpha = running
+            ? 0.55 + Math.sin(time * 3) * 0.25
+            : selected || hovered
+              ? 0.8
+              : 0.45;
         }
         if (eyesRef.current) {
           // Slow natural blink, not an activity signal.
@@ -69,7 +89,14 @@ export function Robot({ x, y, zIndex, name, seed, visual, selected, hovered, onS
     ),
   );
 
-  const visor = status === 'error' ? 0xf43f5e : running ? 0xc4b5fd : status === 'awaiting_approval' ? 0xfbbf24 : 0x7dd3fc;
+  const visor =
+    status === 'error'
+      ? 0xf43f5e
+      : running
+        ? 0xc4b5fd
+        : status === 'awaiting_approval'
+          ? 0xfbbf24
+          : 0x7dd3fc;
   const dim = status === 'paused' || status === 'disconnected';
 
   return (
@@ -92,7 +119,11 @@ export function Robot({ x, y, zIndex, name, seed, visual, selected, hovered, onS
         draw={(g) => {
           g.clear();
           g.ellipse(0, 0, 20, 9).fill({ color: 0x000000, alpha: 0.35 });
-          g.ellipse(0, 0, 20, 9).stroke({ width: selected ? 3 : 2, color: selected ? 0xffffff : color, alpha: 1 });
+          g.ellipse(0, 0, 20, 9).stroke({
+            width: selected ? 3 : 2,
+            color: selected ? 0xffffff : color,
+            alpha: 1,
+          });
         }}
       />
       <pixiContainer ref={bodyRef}>
@@ -152,10 +183,18 @@ export function Robot({ x, y, zIndex, name, seed, visual, selected, hovered, onS
       <pixiGraphics
         draw={(g) => {
           g.clear();
-          const bx = 15, by = -66;
+          const bx = 15,
+            by = -66;
           if (status === 'awaiting_approval') {
             g.circle(bx, by, 8).fill({ color: 0xfbbf24 });
-            g.moveTo(bx - 3.5, by + 2.5).lineTo(bx + 3.5, by + 2.5).lineTo(bx + 2.5, by + 0.5).lineTo(bx + 2.5, by - 2).arc(bx, by - 2, 2.5, 0, Math.PI, true).lineTo(bx - 2.5, by + 0.5).closePath().fill({ color: 0x1c1405 });
+            g.moveTo(bx - 3.5, by + 2.5)
+              .lineTo(bx + 3.5, by + 2.5)
+              .lineTo(bx + 2.5, by + 0.5)
+              .lineTo(bx + 2.5, by - 2)
+              .arc(bx, by - 2, 2.5, 0, Math.PI, true)
+              .lineTo(bx - 2.5, by + 0.5)
+              .closePath()
+              .fill({ color: 0x1c1405 });
             g.circle(bx, by + 4, 1.1).fill({ color: 0x1c1405 });
           } else if (status === 'error') {
             g.circle(bx, by, 8).fill({ color: 0xf43f5e });
@@ -164,13 +203,17 @@ export function Robot({ x, y, zIndex, name, seed, visual, selected, hovered, onS
           } else if (status === 'queued') {
             g.circle(bx, by, 8).fill({ color: 0x3b82f6 });
             g.circle(bx, by, 4.5).stroke({ width: 1.4, color: 0xffffff });
-            g.moveTo(bx, by).lineTo(bx, by - 3).moveTo(bx, by).lineTo(bx + 2.2, by + 1).stroke({ width: 1.4, color: 0xffffff });
+            g.moveTo(bx, by)
+              .lineTo(bx, by - 3)
+              .moveTo(bx, by)
+              .lineTo(bx + 2.2, by + 1)
+              .stroke({ width: 1.4, color: 0xffffff });
           } else if (status === 'paused') {
             g.circle(bx, by, 8).fill({ color: 0x64748b });
             g.rect(bx - 3, by - 3.5, 2, 7).fill({ color: 0xffffff });
             g.rect(bx + 1, by - 3.5, 2, 7).fill({ color: 0xffffff });
           } else if (running) {
-            g.roundRect(-13, -130, 26, 12, 6).fill({ color: 0x7c3aed, alpha: 0.95 });
+            g.roundRect(-13, -154, 26, 12, 6).fill({ color: 0x7c3aed, alpha: 0.95 });
           }
         }}
       />
@@ -182,13 +225,32 @@ export function Robot({ x, y, zIndex, name, seed, visual, selected, hovered, onS
           draw={(g) => {
             g.clear();
             const w = Math.min(130, name.length * 6.4 + 16);
-            g.roundRect(-w / 2, 4, w, 17, 8.5).fill({ color: 0x0b0a14, alpha: selected || hovered ? 0.95 : 0.72 });
-            g.roundRect(-w / 2, 4, w, 17, 8.5).stroke({ width: 1, color: selected ? 0xffffff : color, alpha: selected ? 0.9 : 0.5 });
+            g.roundRect(-w / 2, 4, w, 17, 8.5).fill({
+              color: 0x0b0a14,
+              alpha: selected || hovered ? 0.95 : 0.72,
+            });
+            g.roundRect(-w / 2, 4, w, 17, 8.5).stroke({
+              width: 1,
+              color: selected ? 0xffffff : color,
+              alpha: selected ? 0.9 : 0.5,
+            });
           }}
         />
-        <pixiText text={name.length > 20 ? `${name.slice(0, 19)}…` : name} anchor={{ x: 0.5, y: 0 }} y={6} style={NAME_STYLE} resolution={2} />
+        <pixiText
+          text={name.length > 20 ? `${name.slice(0, 19)}…` : name}
+          anchor={{ x: 0.5, y: 0 }}
+          y={6}
+          style={NAME_STYLE}
+          resolution={2}
+        />
         {visual.caption && (
-          <pixiText text={visual.caption} anchor={{ x: 0.5, y: 0 }} y={-12} style={CAPTION_STYLE} resolution={2} />
+          <pixiText
+            text={visual.caption}
+            anchor={{ x: 0.5, y: 0 }}
+            y={-12}
+            style={CAPTION_STYLE}
+            resolution={2}
+          />
         )}
       </pixiContainer>
     </pixiContainer>

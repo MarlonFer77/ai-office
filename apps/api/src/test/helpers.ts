@@ -6,7 +6,8 @@ import { createAuth } from '../auth.js';
 import { loadEnv } from '../env.js';
 import { EventHub } from '../hub.js';
 
-export const TEST_DB_URL = process.env.TEST_DATABASE_URL ?? 'postgres://aioffice:aioffice@localhost:5432/aioffice_test';
+export const TEST_DB_URL =
+  process.env.TEST_DATABASE_URL ?? 'postgres://aioffice:aioffice@localhost:5432/aioffice_test';
 
 /** Minimal in-process pub/sub so the SSE path runs without Redis in tests. */
 export class FakeRedis {
@@ -49,8 +50,21 @@ export async function createTestApp(): Promise<TestApp> {
   const hub = new EventHub(redis as never);
   await hub.start();
   const queue = new MemoryJobQueue();
-  const orch: OrchestratorContext = { db: handle.db, redis, queue, config: { encryptionKey: env.ENCRYPTION_KEY, demoChunkDelayMs: 0 }, logger: silentLogger };
-  const app = await buildApp({ env, db: handle.db, auth: createAuth(handle.db, env), hub, storage: null, orch });
+  const orch: OrchestratorContext = {
+    db: handle.db,
+    redis,
+    queue,
+    config: { encryptionKey: env.ENCRYPTION_KEY, demoChunkDelayMs: 0 },
+    logger: silentLogger,
+  };
+  const app = await buildApp({
+    env,
+    db: handle.db,
+    auth: createAuth(handle.db, env),
+    hub,
+    storage: null,
+    orch,
+  });
   return { app, h: handle, queue, orch };
 }
 
@@ -63,7 +77,12 @@ export async function resetDb(h: DbHandle) {
 
 /** Signs up and returns the session cookie header. */
 export async function signUp(app: FastifyInstance, email: string, name = 'Teste'): Promise<string> {
-  const res = await app.inject({ method: 'POST', url: '/api/auth/sign-up/email', payload: { email, password: 'senha-segura-123', name }, headers: { origin: 'http://localhost:3000' } });
+  const res = await app.inject({
+    method: 'POST',
+    url: '/api/auth/sign-up/email',
+    payload: { email, password: 'senha-segura-123', name },
+    headers: { origin: 'http://localhost:3000' },
+  });
   if (res.statusCode !== 200) throw new Error(`sign-up failed ${res.statusCode}: ${res.body}`);
   const raw = res.headers['set-cookie'];
   const cookies = (Array.isArray(raw) ? raw : [raw ?? '']).map((c) => c.split(';')[0]).join('; ');

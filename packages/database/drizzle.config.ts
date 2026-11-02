@@ -4,6 +4,8 @@ export default defineConfig({
   schema: './src/schema.ts',
   out: './drizzle',
   dialect: 'postgresql',
-  dbCredentials: { url: process.env.DATABASE_URL ?? 'postgres://aioffice:aioffice@localhost:5432/aioffice' },
+  dbCredentials: {
+    url: process.env.DATABASE_URL ?? 'postgres://aioffice:aioffice@localhost:5432/aioffice',
+  },
   strict: true,
 });

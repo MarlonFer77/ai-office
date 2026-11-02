@@ -7,7 +7,10 @@ import type { OrchestratorContext } from './context.js';
  * Persist-then-publish guarantees that reconnecting clients can replay from
  * Last-Event-ID without gaps.
  */
-export async function emitEvent(ctx: Pick<OrchestratorContext, 'db' | 'redis' | 'logger'>, e: NewOfficeEvent): Promise<OfficeEvent> {
+export async function emitEvent(
+  ctx: Pick<OrchestratorContext, 'db' | 'redis' | 'logger'>,
+  e: NewOfficeEvent,
+): Promise<OfficeEvent> {
   const [row] = await ctx.db
     .insert(events)
     .values({
@@ -32,7 +35,10 @@ export async function emitEvent(ctx: Pick<OrchestratorContext, 'db' | 'redis' | 
   try {
     await ctx.redis.publish(projectChannel(e.projectId), JSON.stringify(event));
   } catch (err) {
-    ctx.logger.warn({ err }, 'event publish failed (persisted, clients will catch up on reconnect)');
+    ctx.logger.warn(
+      { err },
+      'event publish failed (persisted, clients will catch up on reconnect)',
+    );
   }
   return event;
 }
@@ -40,7 +46,14 @@ export async function emitEvent(ctx: Pick<OrchestratorContext, 'db' | 'redis' | 
 /** Transient streaming delta (not persisted; final message is). */
 export async function publishDelta(
   ctx: Pick<OrchestratorContext, 'redis'>,
-  input: { projectId: string; agentId: string; runId: string; text: string; demo: boolean; seq: number },
+  input: {
+    projectId: string;
+    agentId: string;
+    runId: string;
+    text: string;
+    demo: boolean;
+    seq: number;
+  },
 ) {
   const event: OfficeEvent = {
     id: `delta:${input.runId}:${input.seq}`,
@@ -54,5 +67,7 @@ export async function publishDelta(
     payload: { runId: input.runId, text: input.text, seq: input.seq },
     createdAt: new Date().toISOString(),
   };
-  await ctx.redis.publish(projectChannel(input.projectId), JSON.stringify(event)).catch(() => undefined);
+  await ctx.redis
+    .publish(projectChannel(input.projectId), JSON.stringify(event))
+    .catch(() => undefined);
 }
