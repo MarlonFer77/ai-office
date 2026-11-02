@@ -348,6 +348,8 @@ export const agentRuns = pgTable(
     model: text('model').notNull(),
     demo: boolean('demo').notNull().default(false),
     cancelRequested: boolean('cancel_requested').notNull().default(false),
+    /** Pending user input for chat runs; appended to the session only when the turn starts. */
+    input: text('input'),
     inputTokens: integer('input_tokens'),
     outputTokens: integer('output_tokens'),
     error: text('error'),

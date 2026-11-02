@@ -1,0 +1,33 @@
+{
+  "name": "@ai-office/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/server.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch --env-file-if-exists=../../.env src/server.ts",
+    "start": "node dist/server.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "seed": "node --env-file-if-exists=../../.env dist/scripts/seed.js"
+  },
+  "dependencies": {
+    "@ai-office/agents": "workspace:*",
+    "@ai-office/database": "workspace:*",
+    "@ai-office/orchestrator": "workspace:*",
+    "@ai-office/shared": "workspace:*",
+    "@aws-sdk/client-s3": "3.1161.0",
+    "@fastify/cors": "11.4.0",
+    "@fastify/helmet": "13.2.0",
+    "@fastify/rate-limit": "11.2.1",
+    "better-auth": "1.7.15",
+    "drizzle-orm": "0.45.4",
+    "fastify": "5.12.8",
+    "ioredis": "5.10.1",
+    "pino": "10.4.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": { "tsx": "4.23.15" }
+}

@@ -331,7 +331,7 @@ export async function runChat(ctx: OrchestratorContext, runId: string): Promise<
   const project = await ctx.db.query.projects.findFirst({ where: eq(projects.id, run.projectId) });
   if (!agent || !project) return 'skipped';
   try {
-    await runAgentTurn(ctx, { agent, project, kind: 'chat', existingRunId: runId, tools: buildTools(ctx, agent) });
+    await runAgentTurn(ctx, { agent, project, kind: 'chat', existingRunId: runId, prompt: run.input ?? '', tools: buildTools(ctx, agent) });
     return 'done';
   } catch (err) {
     if (err instanceof SessionBusyError || err instanceof AgentPausedError) {
