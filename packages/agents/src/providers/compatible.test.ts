@@ -122,6 +122,8 @@ describe('factory and pricing for compatible providers', () => {
 
   it('recognises non-chat models', () => {
     expect(NON_CHAT_MODEL.test('whisper-large-v3')).toBe(true);
+    expect(NON_CHAT_MODEL.test('canopylabs/orpheus-v1-english')).toBe(true);
+    expect(NON_CHAT_MODEL.test('openai/gpt-oss-20b')).toBe(false);
     expect(NON_CHAT_MODEL.test('llama-3.3-70b-versatile')).toBe(false);
   });
 });

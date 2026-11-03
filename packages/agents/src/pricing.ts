@@ -46,7 +46,7 @@ export const SUGGESTED_MODELS: Record<ProviderId, string[]> = {
 
 /** Models that are not chat/text models (excluded when picking a default). */
 export const NON_CHAT_MODEL =
-  /whisper|tts|speech|audio|guard|embed|moderation|transcri|vision-only|image|dall-e|playai/i;
+  /whisper|tts|speech|audio|guard|embed|moderation|transcri|vision-only|image|dall-e|playai|orpheus|voice/i;
 
 export interface CostResult {
   costUsd: number | null;

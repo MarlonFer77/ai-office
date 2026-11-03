@@ -30,7 +30,8 @@ Contas e sessões; workspace automático; projetos (CRUD, arquivamento, modo dem
 - Limites por provedor: concorrência, tokens de saída, orçamento de histórico; espera de 20 s × tentativa em erros 429.
 - Custo US$ 0 para Ollama e contas marcadas como plano gratuito.
 - Testes novos: adaptador (Groq com `max_tokens`, `x_groq.usage`, repetição sem ferramentas, 429), orquestrador (custo zero, corte de histórico, limite de concorrência com reenfileiramento, equipe inicial no Groq) e API (configuração, proteção de URL, fluxo completo contra um servidor compatível real em HTTP).
-- **Não verificado**: chamada real ao Groq — `api.groq.com` não é acessível a partir deste ambiente e não havia chave. Os testes cobrem o protocolo, não o serviço real.
+- **Verificado ao vivo com o Groq (2026-11-03)**: chave salva criptografada, verificação de conexão pela Models API, chat real (`openai/gpt-oss-20b`, 630→188 tokens) com histórico isolado, e uma missão real completa — plano gerado pelo modelo e validado, 7 tarefas, 7 handoffs, 2 aprovações humanas, ~156 s, 9 execuções, ~40k tokens de entrada, custo registrado US$ 0, sem erros 429.
+- Em redes com proxy, o Node precisa de `NODE_USE_ENV_PROXY=1` para alcançar os provedores (documentado em `.env.example`).
 
 ## Depende de credenciais externas
 
