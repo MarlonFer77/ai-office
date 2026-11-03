@@ -28,8 +28,13 @@ export async function api<T>(
       message = body.message ?? message;
       issues = body.issues;
     } catch {
-      /* non-JSON error */
+      // Non-JSON 5xx from the Next.js proxy: the API process is not reachable.
+      if (res.status >= 500)
+        message =
+          'Não foi possível falar com a API (porta 4000). Verifique se ela está em execução.';
     }
+    if (res.status === 500 && message === 'Erro 500')
+      message = 'Erro interno no servidor. Veja o terminal da API para detalhes.';
     throw new ApiError(res.status, message, issues);
   }
   if (res.status === 204) return undefined as T;

@@ -12,7 +12,7 @@ import type { EventHub } from './hub.js';
 import type { ObjectStorage } from './storage.js';
 import { registerRoutes } from './routes/index.js';
 
-const { and, eq } = orm;
+const { and, eq, sql } = orm;
 
 export interface AppDeps {
   env: Env;
@@ -119,7 +119,20 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     },
   });
 
-  app.get('/api/health', async () => ({ ok: true, sse: deps.hub.connectionCount() }));
+  // Health includes the database so the UI can explain setup problems clearly.
+  app.get('/api/health', async (_req, reply) => {
+    try {
+      await deps.db.execute(sql`select 1 from users limit 1`);
+      return { ok: true, db: 'ok', sse: deps.hub.connectionCount() };
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? `${err.message} ${String((err as { cause?: unknown }).cause ?? '')}`
+          : '';
+      const db = /does not exist/i.test(msg) ? 'not_migrated' : 'unreachable';
+      return reply.status(503).send({ ok: false, db, sse: deps.hub.connectionCount() });
+    }
+  });
   app.get('/api/config', async () => ({
     demoLoginEnabled: deps.env.DEMO_LOGIN_ENABLED,
     storageEnabled: Boolean(deps.storage),

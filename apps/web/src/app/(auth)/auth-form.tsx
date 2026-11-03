@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Sparkles } from 'lucide-react';
 import {
   Button,
@@ -22,6 +22,19 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
   const router = useRouter();
   const qc = useQueryClient();
   const config = useAppConfig();
+  const health = useQuery({
+    queryKey: ['health'],
+    queryFn: async () => {
+      const res = await fetch('/api/health');
+      try {
+        return (await res.json()) as { ok: boolean; db?: string };
+      } catch {
+        return { ok: false, db: 'api_down' };
+      }
+    },
+    refetchInterval: (q) => (q.state.data?.ok ? false : 4000),
+    retry: false,
+  });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -70,6 +83,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {health.data && !health.data.ok && <SetupHint db={health.data.db} />}
         <form onSubmit={onSubmit} className="space-y-4" noValidate={false}>
           {mode === 'signup' && (
             <div className="space-y-1.5">
@@ -148,5 +162,45 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
         </p>
       </CardContent>
     </Card>
+  );
+}
+
+const HINTS: Record<string, { title: string; steps: string[] }> = {
+  api_down: {
+    title: 'A API (porta 4000) não está respondendo.',
+    steps: [
+      'Confira no terminal do "pnpm dev" se aparece "Server listening at http://...:4000".',
+      'Se houver erro em vermelho no bloco @ai-office/api, corrija-o (geralmente .env ou banco).',
+      'Ela pode levar alguns segundos para iniciar — esta mensagem some sozinha.',
+    ],
+  },
+  unreachable: {
+    title: 'A API não consegue acessar o banco de dados (PostgreSQL).',
+    steps: [
+      'Abra o Docker Desktop e rode: pnpm services:up',
+      'Confira se DATABASE_URL no .env aponta para localhost:5432.',
+      'Se já existir outro PostgreSQL na porta 5432, pare-o ou troque a porta.',
+    ],
+  },
+  not_migrated: {
+    title: 'O banco existe, mas as tabelas ainda não foram criadas.',
+    steps: ['Rode: pnpm db:migrate', 'Opcional (escritório demo): pnpm db:seed'],
+  },
+};
+
+function SetupHint({ db }: { db?: string }) {
+  const hint = HINTS[db ?? 'api_down'] ?? HINTS.api_down!;
+  return (
+    <div
+      role="alert"
+      className="mb-4 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm"
+    >
+      <p className="font-medium text-warning">{hint.title}</p>
+      <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-xs text-muted-foreground">
+        {hint.steps.map((s) => (
+          <li key={s}>{s}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
