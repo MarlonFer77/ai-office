@@ -1,5 +1,9 @@
 # Local infrastructure for AI Office.
-#   Infra only (default):   docker compose up -d
+#   Infra only (default):   docker compose up -d        (PostgreSQL + Redis)
+#   Optional S3 storage:    docker compose --profile storage up -d
+#     Note: MinIO images were removed from Docker Hub (minio/minio → 404). Point
+#     MINIO_IMAGE / MC_IMAGE at an image you can pull, or use any S3-compatible
+#     service (AWS S3, Cloudflare R2) via the S3_* variables instead.
 #   Full stack in Docker:   docker compose --profile app up -d --build
 # Pin image digests/tags for production deployments.
 name: ai-office
@@ -31,7 +35,8 @@ services:
       retries: 10
 
   minio:
-    image: minio/minio:latest
+    profiles: [storage]
+    image: ${MINIO_IMAGE:-minio/minio:latest}
     command: server /data --console-address ':9001'
     environment:
       MINIO_ROOT_USER: aioffice
@@ -40,7 +45,8 @@ services:
     volumes: [miniodata:/data]
 
   minio-init:
-    image: minio/mc:latest
+    profiles: [storage]
+    image: ${MC_IMAGE:-minio/mc:latest}
     depends_on: [minio]
     entrypoint: >
       /bin/sh -c "

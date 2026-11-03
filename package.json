@@ -20,8 +20,9 @@
     "db:migrate": "pnpm --filter @ai-office/database db:migrate",
     "start": "turbo run start --parallel --filter=@ai-office/web --filter=@ai-office/api --filter=@ai-office/worker",
     "db:seed": "pnpm --filter @ai-office/api seed",
-    "services:up": "docker compose up -d postgres redis minio minio-init",
-    "services:down": "docker compose down"
+    "services:up": "docker compose up -d postgres redis",
+    "services:down": "docker compose --profile storage down",
+    "services:storage": "docker compose --profile storage up -d minio minio-init"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

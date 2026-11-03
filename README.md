@@ -52,7 +52,7 @@ cp .env.example .env   # depois gere BETTER_AUTH_SECRET e ENCRYPTION_KEY (openss
 ```
 
 ```bash
-pnpm services:up       # PostgreSQL, Redis e MinIO (cria também o banco aioffice_test)
+pnpm services:up       # PostgreSQL e Redis (cria também o banco aioffice_test)
 ```
 
 ```bash
