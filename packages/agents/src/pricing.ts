@@ -33,12 +33,20 @@ export const DEFAULT_MODEL_PRICES: ModelPrice[] = [
 }));
 
 /** Suggested Anthropic models (real IDs). The live list comes from the Models API. */
-export const SUGGESTED_MODELS: Record<'anthropic' | 'openai' | 'demo', string[]> = {
+export const SUGGESTED_MODELS: Record<ProviderId, string[]> = {
   anthropic: ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5', 'claude-fable-5-1'],
-  // OpenAI IDs are discovered from the live Models API after the key is verified.
+  // IDs for the providers below are discovered from their live Models API
+  // after the connection is verified — never hard-coded.
   openai: [],
+  groq: [],
+  openrouter: [],
+  ollama: [],
   demo: ['demo-sim-1'],
 };
+
+/** Models that are not chat/text models (excluded when picking a default). */
+export const NON_CHAT_MODEL =
+  /whisper|tts|speech|audio|guard|embed|moderation|transcri|vision-only|image|dall-e|playai/i;
 
 export interface CostResult {
   costUsd: number | null;
@@ -55,8 +63,12 @@ export function computeCost(
   model: string,
   usage: TokenUsage,
   prices: ModelPrice[],
+  opts: { freeTier?: boolean } = {},
 ): CostResult {
   if (provider === 'demo') return { costUsd: 0, priceSource: 'demo' };
+  if (provider === 'ollama') return { costUsd: 0, priceSource: 'Execução local' };
+  if (opts.freeTier)
+    return { costUsd: 0, priceSource: 'Plano gratuito (declarado nas configurações)' };
   const price =
     prices.find((p) => p.provider === provider && p.model === model) ??
     // Providers may return a dated snapshot id; fall back to the longest matching prefix.

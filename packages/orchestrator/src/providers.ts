@@ -14,10 +14,61 @@ import {
   providerConfigs,
   usageRecords,
 } from '@ai-office/database';
-import type { ProviderId } from '@ai-office/shared';
+import { PROVIDER_PRESETS, type ProviderId } from '@ai-office/shared';
 import type { OrchestratorContext } from './context.js';
 
 const { and, eq, gte, sql, sum } = orm;
+
+/** Loads the runtime settings (and stored config) for a provider without creating an adapter. */
+export async function providerSettings(
+  ctx: Pick<OrchestratorContext, 'db'>,
+  input: { workspaceId: string; projectMode: 'demo' | 'real'; provider: ProviderId },
+) {
+  const demo = input.projectMode === 'demo' || input.provider === 'demo';
+  const cfg =
+    demo || input.provider === 'demo'
+      ? undefined
+      : await ctx.db.query.providerConfigs.findFirst({
+          where: and(
+            eq(providerConfigs.workspaceId, input.workspaceId),
+            eq(providerConfigs.provider, input.provider),
+          ),
+        });
+  const preset = input.provider === 'demo' ? null : PROVIDER_PRESETS[input.provider];
+  const settings: ProviderRuntimeSettings =
+    demo || !preset
+      ? DEMO_SETTINGS
+      : {
+          freeTier: input.provider === 'ollama' || (cfg?.freeTier ?? false),
+          maxConcurrency: cfg?.maxConcurrency ?? preset.defaultConcurrency,
+          maxOutputTokens: preset.maxOutputTokens,
+          contextBudgetTokens: preset.contextBudgetTokens,
+        };
+
+  return { demo, cfg, preset, settings };
+}
+
+/**
+ * Resolves the adapter for an agent run. Demo projects always use the
+ * simulated provider so nothing is ever presented as a real call.
+ */
+export interface ProviderRuntimeSettings {
+  /** Runs are recorded with cost 0 (local server or declared free tier). */
+  freeTier: boolean;
+  /** Max simultaneous runs against this provider in this worker. */
+  maxConcurrency: number;
+  /** Cap on output tokens per call (null = agent setting only). */
+  maxOutputTokens: number | null;
+  /** Approximate token budget for the history sent per call (null = message-count limit only). */
+  contextBudgetTokens: number | null;
+}
+
+const DEMO_SETTINGS: ProviderRuntimeSettings = {
+  freeTier: true,
+  maxConcurrency: 8,
+  maxOutputTokens: null,
+  contextBudgetTokens: null,
+};
 
 /**
  * Resolves the adapter for an agent run. Demo projects always use the
@@ -26,34 +77,85 @@ const { and, eq, gte, sql, sum } = orm;
 export async function resolveAdapter(
   ctx: OrchestratorContext,
   input: { workspaceId: string; projectMode: 'demo' | 'real'; provider: ProviderId },
-): Promise<{ adapter: ProviderAdapter; demo: boolean }> {
-  const demo = input.projectMode === 'demo' || input.provider === 'demo';
+): Promise<{ adapter: ProviderAdapter; demo: boolean; settings: ProviderRuntimeSettings }> {
+  const { demo, cfg, preset, settings } = await providerSettings(ctx, input);
+
   const override = ctx.adapterOverride?.(input.provider, demo);
-  if (override) return { adapter: override, demo: override.demo };
-  if (demo)
+  if (override) return { adapter: override, demo: override.demo, settings };
+  if (demo || !preset)
     return {
       adapter: createAdapter({
         provider: 'demo',
         demo: { chunkDelayMs: ctx.config.demoChunkDelayMs },
       }),
       demo: true,
+      settings,
     };
-  const cfg = await ctx.db.query.providerConfigs.findFirst({
-    where: and(
-      eq(providerConfigs.workspaceId, input.workspaceId),
-      eq(providerConfigs.provider, input.provider),
-    ),
-  });
-  if (!cfg?.encryptedApiKey)
+  if (!cfg || (preset.requiresApiKey && !cfg.encryptedApiKey))
     throw new ProviderError(
       'auth',
-      `Provedor ${input.provider} não configurado para este workspace.`,
+      `Provedor ${preset.label} não configurado para este workspace.`,
       false,
     );
   if (!cfg.enabled)
-    throw new ProviderError('auth', `Provedor ${input.provider} está desativado.`, false);
-  const apiKey = decryptSecret(cfg.encryptedApiKey, ctx.config.encryptionKey);
-  return { adapter: createAdapter({ provider: input.provider, apiKey }), demo: false };
+    throw new ProviderError('auth', `Provedor ${preset.label} está desativado.`, false);
+  const apiKey = cfg.encryptedApiKey
+    ? decryptSecret(cfg.encryptedApiKey, ctx.config.encryptionKey)
+    : null;
+  return {
+    adapter: createAdapter({ provider: input.provider, apiKey, baseUrl: cfg.baseUrl }),
+    demo: false,
+    settings,
+  };
+}
+
+export class ProviderBusyError extends Error {
+  constructor(provider: string) {
+    super(`Limite de execuções simultâneas do provedor ${provider} atingido.`);
+    this.name = 'ProviderBusyError';
+  }
+}
+
+/**
+ * Per-provider concurrency gate (per worker process). Free tiers and local
+ * servers are protected from bursts; callers re-enqueue on ProviderBusyError.
+ */
+const activeByProvider = new Map<string, number>();
+export function acquireProviderSlot(provider: string, max: number): () => void {
+  const active = activeByProvider.get(provider) ?? 0;
+  if (active >= max) throw new ProviderBusyError(provider);
+  activeByProvider.set(provider, active + 1);
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    activeByProvider.set(provider, Math.max(0, (activeByProvider.get(provider) ?? 1) - 1));
+  };
+}
+
+/**
+ * Keeps the most recent messages within an approximate token budget
+ * (~4 characters per token). Always keeps at least the last message.
+ */
+export function trimHistoryToBudget<T extends { content: string }>(
+  history: T[],
+  budgetTokens: number | null,
+  systemChars = 0,
+): T[] {
+  if (budgetTokens == null) return history;
+  let remaining = budgetTokens * 4 - systemChars;
+  const out: T[] = [];
+  for (let i = history.length - 1; i >= 0; i--) {
+    const m = history[i]!;
+    if (out.length > 0 && m.content.length > remaining) break;
+    out.unshift(
+      out.length === 0 && m.content.length > remaining
+        ? { ...m, content: m.content.slice(-Math.max(2000, remaining)) }
+        : m,
+    );
+    remaining -= m.content.length;
+  }
+  return out;
 }
 
 /** Workspace overrides take precedence over the published defaults. */

@@ -1,6 +1,6 @@
 # Progresso
 
-_Última atualização: 2026-11-02_
+_Última atualização: 2026-11-03_
 
 ## Fases concluídas
 
@@ -23,6 +23,14 @@ Ambiente de verificação: Node 22.23, PostgreSQL 16 e Redis 7 nativos (o daemon
 ## Funcionando
 
 Contas e sessões; workspace automático; projetos (CRUD, arquivamento, modo demo/real, orçamento); 7 salas clicáveis; agentes configuráveis (provedor, modelo, função, prompt, permissões, limites, pausa, remoção); sessões independentes com continuidade; chat com streaming e interrupção; missões com plano aprovado por humano, dependências, prioridades, retentativas com backoff, cancelamento, reexecução manual; handoffs formais com animação; artefatos versionados, busca, download, upload S3; aprovações com feedback; eventos SSE persistidos com replay e deduplicação; consumo e custo por agente/modelo com limites e alertas; auditoria; configuração de provedores com verificação real; tabela de preços editável; visão em lista para celulares.
+
+## Incremento 2026-11-03 — provedores sem custo
+
+- Novos provedores compatíveis com OpenAI: **Groq** (foco: plano gratuito), **OpenRouter** e **Ollama (local)**, com migração `0002_compatible_providers`.
+- Limites por provedor: concorrência, tokens de saída, orçamento de histórico; espera de 20 s × tentativa em erros 429.
+- Custo US$ 0 para Ollama e contas marcadas como plano gratuito.
+- Testes novos: adaptador (Groq com `max_tokens`, `x_groq.usage`, repetição sem ferramentas, 429), orquestrador (custo zero, corte de histórico, limite de concorrência com reenfileiramento, equipe inicial no Groq) e API (configuração, proteção de URL, fluxo completo contra um servidor compatível real em HTTP).
+- **Não verificado**: chamada real ao Groq — `api.groq.com` não é acessível a partir deste ambiente e não havia chave. Os testes cobrem o protocolo, não o serviço real.
 
 ## Depende de credenciais externas
 

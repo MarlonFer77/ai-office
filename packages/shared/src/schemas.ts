@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  CONFIGURABLE_PROVIDERS,
   AGENT_PERMISSIONS,
   AGENT_ROLES,
   ARTIFACT_KINDS,
@@ -65,11 +66,23 @@ export const resolveApprovalSchema = z.object({
 });
 
 export const providerConfigSchema = z.object({
-  provider: z.enum(['anthropic', 'openai']),
+  provider: z.enum(CONFIGURABLE_PROVIDERS),
   apiKey: z.string().trim().min(8).max(500).optional(),
   enabled: z.boolean().default(true),
   defaultModel: z.string().trim().max(200).nullable().optional(),
   monthlyBudgetUsd: z.number().nonnegative().max(1_000_000).nullable().optional(),
+  /** Only honoured for providers whose preset allows it (local servers). */
+  baseUrl: z
+    .string()
+    .trim()
+    .url()
+    .max(500)
+    .refine((u) => /^https?:\/\//i.test(u), 'URL deve usar http ou https')
+    .nullable()
+    .optional(),
+  /** Declares the account as free tier: runs are recorded with cost US$ 0. */
+  freeTier: z.boolean().optional(),
+  maxConcurrency: z.number().int().min(1).max(16).nullable().optional(),
 });
 export type ProviderConfigInput = z.infer<typeof providerConfigSchema>;
 

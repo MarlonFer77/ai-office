@@ -18,8 +18,9 @@ import {
   type ProviderId,
   ROLE_ROOM,
   ROOM_BLUEPRINTS,
+  PROVIDER_PRESETS,
 } from '@ai-office/shared';
-import { SUGGESTED_MODELS } from '@ai-office/agents';
+import { NON_CHAT_MODEL, SUGGESTED_MODELS } from '@ai-office/agents';
 import type { OrchestratorContext } from './context.js';
 import { emitEvent } from './events.js';
 
@@ -84,17 +85,32 @@ async function starterModel(
   const configs = await db.query.providerConfigs.findMany({
     where: and(eq(providerConfigs.workspaceId, workspaceId), eq(providerConfigs.enabled, true)),
   });
-  const pick =
-    configs.find((c) => c.provider === preferred && c.encryptedApiKey) ??
-    configs.find((c) => c.encryptedApiKey);
+  const usable = configs.filter((c) =>
+    c.provider === 'demo'
+      ? false
+      : PROVIDER_PRESETS[c.provider].requiresApiKey
+        ? Boolean(c.encryptedApiKey)
+        : true,
+  );
+  const pick = usable.find((c) => c.provider === preferred) ?? usable[0];
   if (!pick) return { provider: 'demo' as ProviderId, model: 'demo-sim-1' };
+  // Never invent a model id: use the configured default, a published suggestion,
+  // or the first chat model returned by the provider's own Models API.
   const model =
     pick.defaultModel ??
-    SUGGESTED_MODELS[pick.provider as 'anthropic' | 'openai'][0] ??
-    pick.availableModels[0];
+    SUGGESTED_MODELS[pick.provider][0] ??
+    pick.availableModels.find((m) => !NON_CHAT_MODEL.test(m));
   if (!model) return { provider: 'demo' as ProviderId, model: 'demo-sim-1' };
   return { provider: pick.provider, model };
 }
+
+const AGENT_PREFIX: Partial<Record<ProviderId, string>> = {
+  anthropic: 'Claude ',
+  openai: 'GPT ',
+  groq: 'Groq ',
+  openrouter: '',
+  ollama: 'Local ',
+};
 
 export async function createProject(
   ctx: Pick<OrchestratorContext, 'db' | 'redis' | 'logger'>,
@@ -141,7 +157,7 @@ export async function createProject(
       const name =
         provider === 'demo'
           ? member.name.replace(/^(Claude|GPT) /, '')
-          : member.name.replace(/^(Claude|GPT) /, provider === 'openai' ? 'GPT ' : 'Claude ');
+          : member.name.replace(/^(Claude|GPT) /, AGENT_PREFIX[provider] ?? '');
       await createAgent(ctx, project.id, {
         name,
         role: member.role,

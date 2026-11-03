@@ -16,6 +16,9 @@
 - **Sem execução de código / shell / rede** por agentes. As permissões `execute_code`, `external_network` e `publish_external` existem no modelo de dados, mas ficam bloqueadas na UI e não têm ferramenta associada.
 - **Falhas de provedor** normalizadas (`auth`, `rate_limit`, `unavailable`, `refusal`, `budget`, `aborted`), sem incluir credenciais em mensagens.
 
+- **SSRF**: provedores externos (Groq, OpenRouter, Anthropic, OpenAI) têm endereço fixo no servidor. Só o Ollama aceita URL personalizada, e apenas quando `ALLOW_CUSTOM_PROVIDER_URLS=true` (padrão fora de produção). Desative em implantações multiusuário.
+- **Dados enviados a terceiros**: planos gratuitos externos podem ter termos próprios de uso de dados; a tela de configurações alerta para não enviar dados sensíveis.
+
 ## Recomendações para produção
 
 - Usar KMS/Secret Manager para `ENCRYPTION_KEY` e `BETTER_AUTH_SECRET`; planejar rotação (re-criptografar `provider_configs`).

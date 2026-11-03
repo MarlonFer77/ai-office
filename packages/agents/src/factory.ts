@@ -1,4 +1,4 @@
-import type { ProviderId } from '@ai-office/shared';
+import { PROVIDER_PRESETS, type ProviderId } from '@ai-office/shared';
 import { AnthropicAdapter } from './providers/anthropic.js';
 import { DemoAdapter, type DemoAdapterOptions } from './providers/demo.js';
 import { OpenAIAdapter } from './providers/openai.js';
@@ -8,6 +8,8 @@ import { ProviderError } from './errors.js';
 export interface AdapterFactoryInput {
   provider: ProviderId;
   apiKey?: string | null;
+  /** Overrides the preset base URL (only used for providers that allow it). */
+  baseUrl?: string | null;
   demo?: DemoAdapterOptions;
 }
 
@@ -23,5 +25,21 @@ export function createAdapter(input: AdapterFactoryInput): ProviderAdapter {
     case 'openai':
       if (!input.apiKey) throw new ProviderError('auth', 'Provedor OpenAI não configurado.', false);
       return new OpenAIAdapter({ apiKey: input.apiKey });
+    case 'groq':
+    case 'openrouter':
+    case 'ollama': {
+      const preset = PROVIDER_PRESETS[input.provider];
+      if (preset.requiresApiKey && !input.apiKey) {
+        throw new ProviderError('auth', `Provedor ${preset.label} não configurado.`, false);
+      }
+      const baseURL = (preset.baseUrlEditable && input.baseUrl) || preset.baseUrl;
+      return new OpenAIAdapter({
+        // Local servers ignore the key, but the SDK requires a non-empty value.
+        apiKey: input.apiKey || 'not-required',
+        ...(baseURL ? { baseURL } : {}),
+        providerId: input.provider,
+        label: preset.label,
+      });
+    }
   }
 }

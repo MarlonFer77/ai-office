@@ -359,7 +359,8 @@ describe('failures, retries, interruption and budgets', () => {
     const task = (await h.db.query.tasks.findFirst({ where: eq(tasks.missionId, mission.id) }))!;
     expect(task.status).toBe('failed');
     expect(task.attempts).toBe(3);
-    expect(delays).toEqual([2000, 4000]);
+    // Rate limits back off longer (free-tier quotas reset per minute).
+    expect(delays).toEqual([20000, 40000]);
     expect(n).toBe(4);
     expect(
       (await h.db.query.missions.findFirst({ where: eq(missions.id, mission.id) }))!.status,

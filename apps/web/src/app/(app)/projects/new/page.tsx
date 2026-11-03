@@ -146,7 +146,7 @@ function Wizard() {
                     [
                       'real',
                       'Real',
-                      'Usa os provedores configurados (Anthropic/OpenAI). Chamadas reais, com custo registrado.',
+                      'IA de verdade com os provedores configurados: Groq (gratuito), Ollama local, Anthropic ou OpenAI. Consumo registrado.',
                       KeyRound,
                     ],
                   ] as const

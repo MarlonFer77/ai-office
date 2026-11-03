@@ -206,7 +206,16 @@ export interface OfficeSnapshot {
 }
 
 export interface ProviderConfig {
-  provider: 'anthropic' | 'openai';
+  provider: 'anthropic' | 'openai' | 'groq' | 'openrouter' | 'ollama';
+  label: string;
+  description: string;
+  keyUrl: string | null;
+  requiresApiKey: boolean;
+  baseUrlEditable: boolean;
+  baseUrl: string | null;
+  freeTier: boolean;
+  maxConcurrency: number | null;
+  defaultConcurrency: number;
   configured: boolean;
   keyHint: string | null;
   enabled: boolean;

@@ -84,13 +84,27 @@ Abra http://localhost:3000 e clique em **Explorar o escritório demo** (usuário
 
 ## Configurando as APIs de IA (modo real)
 
-1. **Configurações → Provedores**: informe a chave da Anthropic e/ou da OpenAI. Ela é criptografada no servidor (AES-256-GCM) e nunca volta ao navegador.
-2. **Verificar conexão**: lista os modelos disponíveis direto da API do provedor.
-3. Escolha o modelo padrão, um limite mensal (opcional) e salve.
-4. No projeto, mude o modo para **Real** (assistente ou configurações do projeto) e configure cada agente com provedor e modelo.
-5. **Configurações → Preços**: preços da Anthropic vêm pré-carregados da tabela publicada; os da OpenAI devem ser informados por você a partir da página oficial. Sem preço, o custo aparece como "desconhecido".
+### Sem custo: Groq (recomendado para começar)
 
-As variáveis de ambiente estão documentadas em [`.env.example`](.env.example).
+1. Crie uma chave gratuita em [console.groq.com/keys](https://console.groq.com/keys).
+2. No AI Office, abra **Configurações → Provedores**, cole a chave no cartão **Groq** e clique em **Salvar**.
+3. Clique em **Verificar conexão**: o app lista os modelos de texto disponíveis na API do Groq (nenhum ID de modelo é fixo no código).
+4. Escolha o **modelo padrão** e salve.
+5. Crie um projeto em modo **Real** (a equipe inicial já usa o Groq quando ele é o provedor configurado) ou ajuste cada agente para o provedor Groq.
+
+O plano gratuito do Groq tem limites por minuto e por dia (por organização). Para respeitá-los, o AI Office usa, por padrão no Groq: **1 execução por vez**, até **1.500 tokens de resposta**, histórico cortado em ~3.500 tokens e nova tentativa automática com espera crescente quando recebe erro 429. A opção "Conta no plano gratuito" registra o custo como US$ 0.
+
+> Não envie dados sensíveis da empresa a serviços externos; leia os termos do provedor.
+
+### Outras opções
+
+| Provedor               | Custo                                        | Observação                                                                                                       |
+| ---------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **Ollama (local)**     | sem custo                                    | Modelos na sua máquina; informe o endereço (padrão `http://localhost:11434/v1`). Desempenho depende do hardware. |
+| **OpenRouter**         | gratuito em modelos `:free`, pago nos demais | Marque "Conta no plano gratuito" só se usar apenas modelos gratuitos.                                            |
+| **Anthropic / OpenAI** | pago por token                               | Preços da Anthropic pré-carregados (tabela publicada); os da OpenAI você informa em **Configurações → Preços**.  |
+
+As chaves são criptografadas no servidor (AES-256-GCM) e nunca voltam ao navegador. Sem preço configurado, o custo aparece como "desconhecido" — nunca estimado. Variáveis de ambiente em [`.env.example`](.env.example).
 
 ## Documentação
 

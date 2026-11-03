@@ -19,6 +19,7 @@ import {
 } from '@ai-office/shared';
 import type { OrchestratorContext } from './context.js';
 import { emitEvent } from './events.js';
+import { ProviderBusyError } from './providers.js';
 import { runAgentTurn, SessionBusyError } from './execution.js';
 
 const { and, eq, inArray, asc } = orm;
@@ -92,7 +93,7 @@ export async function planMission(ctx: OrchestratorContext, missionId: string): 
     });
     plan = result.demo ? buildDemoPlan(mission.goal, roles) : parsePlan(result.text, roles);
   } catch (err) {
-    if (err instanceof SessionBusyError) {
+    if (err instanceof SessionBusyError || err instanceof ProviderBusyError) {
       await ctx.queue.enqueue({ kind: 'plan', missionId }, { delayMs: 2000 });
       return;
     }

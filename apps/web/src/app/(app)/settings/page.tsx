@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { CheckCircle2, KeyRound, Plug, ShieldCheck, Trash2, XCircle } from 'lucide-react';
+import { CheckCircle2, KeyRound, Plug, ShieldCheck, Sparkles, Trash2, XCircle } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -52,12 +52,56 @@ export default function SettingsPage() {
 
 function Providers() {
   const providers = useProviders();
+  const free = providers.data?.filter((p) => p.freeTier) ?? [];
+  const paid = providers.data?.filter((p) => !p.freeTier) ?? [];
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      {providers.data?.map((p) => (
-        <ProviderCard key={p.provider} cfg={p} />
-      ))}
-      <Card className="p-5 lg:col-span-2">
+    <div className="space-y-6">
+      <Card className="border-success/30 bg-success/[0.05] p-5">
+        <p className="flex items-center gap-2 text-sm font-medium">
+          <Sparkles className="size-4 text-success" /> Comece sem custo com o Groq
+        </p>
+        <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
+          <li>
+            Crie uma chave gratuita em{' '}
+            <a
+              className="text-primary-soft underline"
+              href="https://console.groq.com/keys"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              console.groq.com/keys
+            </a>
+            .
+          </li>
+          <li>Cole a chave no cartão do Groq abaixo, salve e clique em “Verificar conexão”.</li>
+          <li>Escolha o modelo padrão na lista (apenas modelos de texto são exibidos).</li>
+          <li>
+            Num projeto em modo <b>Real</b>, configure os agentes com o provedor Groq.
+          </li>
+        </ol>
+        <p className="mt-2 text-xs text-muted-foreground">
+          O plano gratuito tem limites por minuto e por dia; o AI Office executa uma chamada por vez
+          e re-tenta automaticamente quando o limite é atingido. Não envie dados sensíveis da
+          empresa a serviços externos.
+        </p>
+      </Card>
+      <section>
+        <h2 className="mb-3 text-sm font-semibold">Sem custo</h2>
+        <div className="grid gap-4 lg:grid-cols-2">
+          {free.map((p) => (
+            <ProviderCard key={p.provider} cfg={p} />
+          ))}
+        </div>
+      </section>
+      <section>
+        <h2 className="mb-3 text-sm font-semibold">Pagos (cobrança por token)</h2>
+        <div className="grid gap-4 lg:grid-cols-2">
+          {paid.map((p) => (
+            <ProviderCard key={p.provider} cfg={p} />
+          ))}
+        </div>
+      </section>
+      <Card className="p-5">
         <p className="flex items-center gap-2 text-sm font-medium">
           <ShieldCheck className="size-4 text-success" /> Segurança das credenciais
         </p>
@@ -77,6 +121,11 @@ function ProviderCard({ cfg }: { cfg: ProviderConfig }) {
   const [budget, setBudget] = useState(
     cfg.monthlyBudgetUsd == null ? '' : String(cfg.monthlyBudgetUsd),
   );
+  const [baseUrl, setBaseUrl] = useState(cfg.baseUrl ?? '');
+  const [concurrency, setConcurrency] = useState(
+    cfg.maxConcurrency == null ? '' : String(cfg.maxConcurrency),
+  );
+  const [freeTier, setFreeTier] = useState(cfg.freeTier);
   const save = useApiMutation(
     (body: object) =>
       api<ProviderConfig>(`/providers/${cfg.provider}`, { method: 'PUT', json: body }),
@@ -90,20 +139,28 @@ function ProviderCard({ cfg }: { cfg: ProviderConfig }) {
     () => api(`/providers/${cfg.provider}`, { method: 'DELETE' }),
     () => [['providers']],
   );
-  const name = cfg.provider === 'anthropic' ? 'Anthropic (Claude)' : 'OpenAI (GPT)';
   const models = [...new Set([...cfg.availableModels, ...cfg.suggestedModels])];
+  const id = cfg.provider;
+  const isLocal = cfg.provider === 'ollama';
+
   return (
     <Card className="space-y-4 p-5">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="flex items-center gap-2 font-semibold">
-            <Plug className="size-4 text-primary-soft" /> {name}
-          </h2>
+        <div className="min-w-0">
+          <h3 className="flex flex-wrap items-center gap-2 font-semibold">
+            <Plug className="size-4 text-primary-soft" /> {cfg.label}
+            {cfg.freeTier && <Badge variant="success">sem custo</Badge>}
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">{cfg.description}</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {cfg.configured ? `Chave: ${cfg.keyHint}` : 'Não configurado'}
+            {cfg.configured
+              ? cfg.keyHint
+                ? `Chave: ${cfg.keyHint}`
+                : 'Configurado'
+              : 'Não configurado'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           {cfg.lastCheckOk === true && (
             <Badge variant="success">
               <CheckCircle2 className="size-3" /> conectado
@@ -118,7 +175,7 @@ function ProviderCard({ cfg }: { cfg: ProviderConfig }) {
             checked={cfg.enabled}
             disabled={!cfg.configured}
             onCheckedChange={(v) => save.mutate({ enabled: v })}
-            aria-label={`Ativar ${name}`}
+            aria-label={`Ativar ${cfg.label}`}
           />
         </div>
       </div>
@@ -137,64 +194,125 @@ function ProviderCard({ cfg }: { cfg: ProviderConfig }) {
               ...(apiKey ? { apiKey } : {}),
               defaultModel: defaultModel || null,
               monthlyBudgetUsd: budget === '' ? null : Number(budget),
+              maxConcurrency: concurrency === '' ? null : Number(concurrency),
+              ...(isLocal ? { baseUrl: baseUrl || null } : { freeTier }),
             },
             {
               onSuccess: () => {
                 setApiKey('');
-                toast.success('Provedor salvo');
+                toast.success(`${cfg.label} salvo`, 'Agora clique em “Verificar conexão”.');
               },
               onError: (err) => toast.error('Falha ao salvar', errorMessage(err)),
             },
           );
         }}
       >
-        <div className="space-y-1.5">
-          <Label htmlFor={`${cfg.provider}-key`}>
-            Chave de API {cfg.configured && '(deixe vazio para manter)'}
-          </Label>
-          <div className="relative">
-            <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        {cfg.requiresApiKey && (
+          <div className="space-y-1.5">
+            <Label htmlFor={`${id}-key`}>
+              Chave de API {cfg.configured && '(deixe vazio para manter)'}
+              {cfg.keyUrl && (
+                <>
+                  {' · '}
+                  <a
+                    className="text-primary-soft underline"
+                    href={cfg.keyUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    obter chave
+                  </a>
+                </>
+              )}
+            </Label>
+            <div className="relative">
+              <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id={`${id}-key`}
+                type="password"
+                autoComplete="off"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                className="pl-9 font-mono"
+              />
+            </div>
+          </div>
+        )}
+        {cfg.baseUrlEditable ? (
+          <div className="space-y-1.5">
+            <Label htmlFor={`${id}-url`}>Endereço do servidor</Label>
             <Input
-              id={`${cfg.provider}-key`}
-              type="password"
-              autoComplete="off"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              className="pl-9 font-mono"
-              placeholder={cfg.provider === 'anthropic' ? 'sk-ant-…' : 'sk-…'}
+              id={`${id}-url`}
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+              className="font-mono text-xs"
+              placeholder="http://localhost:11434/v1"
             />
           </div>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor={`${cfg.provider}-model`}>Modelo padrão</Label>
+        ) : (
+          cfg.baseUrl && (
+            <p className="font-mono text-[11px] text-muted-foreground">Endpoint: {cfg.baseUrl}</p>
+          )
+        )}
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor={`${id}-model`}>Modelo padrão</Label>
             <Input
-              id={`${cfg.provider}-model`}
-              list={`${cfg.provider}-models`}
+              id={`${id}-model`}
+              list={`${id}-models`}
               value={defaultModel}
               onChange={(e) => setDefaultModel(e.target.value)}
               className="font-mono text-xs"
-              placeholder={models[0] ?? 'verifique para listar'}
+              placeholder={models[0] ?? 'verifique a conexão para listar'}
             />
-            <datalist id={`${cfg.provider}-models`}>
+            <datalist id={`${id}-models`}>
               {models.map((m) => (
                 <option key={m} value={m} />
               ))}
             </datalist>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor={`${cfg.provider}-budget`}>Limite mensal (US$)</Label>
+            <Label htmlFor={`${id}-conc`}>Simultâneas</Label>
             <Input
-              id={`${cfg.provider}-budget`}
+              id={`${id}-conc`}
               type="number"
-              min={0}
-              step="0.01"
-              value={budget}
-              onChange={(e) => setBudget(e.target.value)}
-              placeholder="Sem limite"
+              min={1}
+              max={16}
+              value={concurrency}
+              onChange={(e) => setConcurrency(e.target.value)}
+              placeholder={String(cfg.defaultConcurrency)}
             />
           </div>
         </div>
+        {!isLocal && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor={`${id}-budget`}>Limite mensal (US$)</Label>
+              <Input
+                id={`${id}-budget`}
+                type="number"
+                min={0}
+                step="0.01"
+                value={budget}
+                onChange={(e) => setBudget(e.target.value)}
+                placeholder="Sem limite"
+              />
+            </div>
+            <label className="flex items-center justify-between gap-3 rounded-lg border border-border/70 px-3 py-2">
+              <span>
+                <span className="block text-sm">Conta no plano gratuito</span>
+                <span className="block text-[11px] text-muted-foreground">
+                  Registra o custo como US$ 0
+                </span>
+              </span>
+              <Switch
+                checked={freeTier}
+                onCheckedChange={setFreeTier}
+                aria-label="Conta no plano gratuito"
+              />
+            </label>
+          </div>
+        )}
         <div className="flex flex-wrap gap-2">
           <Button type="submit" disabled={save.isPending}>
             {save.isPending && <Spinner />} Salvar
@@ -209,7 +327,7 @@ function ProviderCard({ cfg }: { cfg: ProviderConfig }) {
                   r.lastCheckOk
                     ? toast.success(
                         'Conexão verificada',
-                        `${r.availableModels.length} modelos disponíveis`,
+                        `${r.availableModels.length} modelos de texto disponíveis`,
                       )
                     : toast.error('Falha na verificação', r.lastCheckError ?? undefined),
                 onError: (e) => toast.error('Falha', errorMessage(e)),
@@ -218,7 +336,7 @@ function ProviderCard({ cfg }: { cfg: ProviderConfig }) {
           >
             {verify.isPending && <Spinner />} Verificar conexão
           </Button>
-          {cfg.configured && (
+          {cfg.configured && cfg.requiresApiKey && (
             <Button
               type="button"
               variant="ghost"
@@ -234,7 +352,7 @@ function ProviderCard({ cfg }: { cfg: ProviderConfig }) {
         {cfg.lastCheckedAt && (
           <p className="text-[11px] text-muted-foreground">
             Última verificação: {dateTime(cfg.lastCheckedAt)} · {cfg.availableModels.length} modelos
-            listados
+            de texto listados
           </p>
         )}
       </form>
@@ -305,6 +423,8 @@ function Prices() {
           >
             <option value="openai">OpenAI</option>
             <option value="anthropic">Anthropic</option>
+            <option value="groq">Groq</option>
+            <option value="openrouter">OpenRouter</option>
           </NativeSelect>
           <Input
             required

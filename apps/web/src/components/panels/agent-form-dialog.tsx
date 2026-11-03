@@ -6,6 +6,7 @@ import {
   type AgentPermission,
   type AgentRole,
   DEFAULT_AGENT_PERMISSIONS,
+  type ProviderId,
   ROOM_KINDS,
   ROLE_ROOM,
   type RoomKind,
@@ -89,7 +90,7 @@ export function AgentFormDialog({
   const [name, setName] = useState('');
   const [role, setRole] = useState<AgentRole>('researcher');
   const [roomKind, setRoomKind] = useState<RoomKind>('research');
-  const [provider, setProvider] = useState<'anthropic' | 'openai' | 'demo'>('demo');
+  const [provider, setProvider] = useState<ProviderId>('demo');
   const [model, setModel] = useState('demo-sim-1');
   const [systemPrompt, setSystemPrompt] = useState('');
   const [budget, setBudget] = useState('');
@@ -234,24 +235,17 @@ export function AgentFormDialog({
                 onChange={(e) => onProvider(e.target.value as typeof provider)}
               >
                 <option value="demo">Demonstração (simulado)</option>
-                <option
-                  value="anthropic"
-                  disabled={!providers.data?.find((p) => p.provider === 'anthropic')?.configured}
-                >
-                  Anthropic{' '}
-                  {providers.data?.find((p) => p.provider === 'anthropic')?.configured
-                    ? ''
-                    : '(configure em Configurações)'}
-                </option>
-                <option
-                  value="openai"
-                  disabled={!providers.data?.find((p) => p.provider === 'openai')?.configured}
-                >
-                  OpenAI{' '}
-                  {providers.data?.find((p) => p.provider === 'openai')?.configured
-                    ? ''
-                    : '(configure em Configurações)'}
-                </option>
+                {providers.data?.map((p) => (
+                  <option
+                    key={p.provider}
+                    value={p.provider}
+                    disabled={!p.configured || !p.enabled}
+                  >
+                    {p.label}
+                    {p.freeTier ? ' · sem custo' : ''}
+                    {!p.configured || !p.enabled ? ' (configure em Configurações)' : ''}
+                  </option>
+                ))}
               </NativeSelect>
             </div>
             <div className="space-y-1.5">

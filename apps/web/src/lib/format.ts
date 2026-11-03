@@ -22,6 +22,9 @@ export const ROOM_ICONS: Record<RoomKind, string> = {
 export const PROVIDER_LABELS: Record<ProviderId, string> = {
   anthropic: 'Anthropic',
   openai: 'OpenAI',
+  groq: 'Groq',
+  openrouter: 'OpenRouter',
+  ollama: 'Local',
   demo: 'Demo',
 };
 

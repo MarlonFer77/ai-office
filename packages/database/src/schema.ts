@@ -485,6 +485,12 @@ export const providerConfigs = pgTable(
     enabled: boolean('enabled').notNull().default(true),
     defaultModel: text('default_model'),
     monthlyBudgetUsd: money('monthly_budget_usd'),
+    /** Custom base URL (only for local OpenAI-compatible servers such as Ollama). */
+    baseUrl: text('base_url'),
+    /** User-declared free tier: runs are recorded with cost 0. */
+    freeTier: boolean('free_tier').notNull().default(false),
+    /** Max simultaneous runs against this provider (null = preset default). */
+    maxConcurrency: integer('max_concurrency'),
     availableModels: jsonb('available_models').$type<string[]>().notNull().default([]),
     lastCheckedAt: timestamp('last_checked_at', { withTimezone: true }),
     lastCheckOk: boolean('last_check_ok'),

@@ -25,7 +25,16 @@ import {
 import { ORCHESTRATION_LIMITS } from '@ai-office/shared';
 import type { OrchestratorContext } from './context.js';
 import { emitEvent, publishDelta } from './events.js';
-import { checkBudget, getPrices, resolveAdapter } from './providers.js';
+import {
+  acquireProviderSlot,
+  checkBudget,
+  ProviderBusyError,
+  getPrices,
+  providerSettings,
+  type ProviderRuntimeSettings,
+  resolveAdapter,
+  trimHistoryToBudget,
+} from './providers.js';
 
 const { and, eq, or, isNull, lt, desc, inArray, sql } = orm;
 
@@ -160,6 +169,30 @@ export async function runAgentTurn(
   ctx: OrchestratorContext,
   input: AgentTurnInput,
 ): Promise<AgentTurnResult> {
+  if (input.agent.paused) throw new AgentPausedError();
+  const { demo, settings } = await providerSettings(ctx, {
+    workspaceId: input.project.workspaceId,
+    projectMode: input.project.mode,
+    provider: input.agent.provider,
+  });
+  // Reserve a provider slot before any state is written, so a busy provider
+  // simply re-queues the job without leaving orphan runs or duplicate prompts.
+  const release = acquireProviderSlot(
+    demo ? 'demo' : `${input.project.workspaceId}:${input.agent.provider}`,
+    settings.maxConcurrency,
+  );
+  try {
+    return await runAgentTurnInner(ctx, input, settings);
+  } finally {
+    release();
+  }
+}
+
+async function runAgentTurnInner(
+  ctx: OrchestratorContext,
+  input: AgentTurnInput,
+  settings: ProviderRuntimeSettings,
+): Promise<AgentTurnResult> {
   const { agent, project } = input;
   if (agent.paused) throw new AgentPausedError();
   const session = await ctx.db.query.agentSessions.findFirst({
@@ -247,8 +280,11 @@ export async function runAgentTurn(
         limit: ORCHESTRATION_LIMITS.maxHistoryMessages,
       })
     ).reverse();
+    // Small free-tier quotas: keep only what fits the provider's token budget.
+    const systemPrompt = buildSystemPrompt(agent);
+    const fitted = trimHistoryToBudget(history, settings.contextBudgetTokens, systemPrompt.length);
     // Providers require the conversation to start with a user turn.
-    while (history.length && history[0]!.role !== 'user') history.shift();
+    while (fitted.length && fitted[0]!.role !== 'user') fitted.shift();
 
     await ctx.db
       .update(agentRuns)
@@ -292,9 +328,13 @@ export async function runAgentTurn(
     };
     const req = {
       model: agent.model,
-      system: buildSystemPrompt(agent),
-      messages: history.map((m) => ({ role: m.role, content: m.content })),
-      maxOutputTokens: Math.min(agent.maxOutputTokens, ORCHESTRATION_LIMITS.maxOutputTokens),
+      system: systemPrompt,
+      messages: fitted.map((m) => ({ role: m.role, content: m.content })),
+      maxOutputTokens: Math.min(
+        agent.maxOutputTokens,
+        ORCHESTRATION_LIMITS.maxOutputTokens,
+        settings.maxOutputTokens ?? Number.POSITIVE_INFINITY,
+      ),
       signal,
       tools: input.tools ?? [],
       onDelta,
@@ -348,7 +388,9 @@ export async function runAgentTurn(
       .returning();
     const prices = await getPrices(ctx, project.workspaceId);
     const provider = demo ? 'demo' : agent.provider;
-    const cost = computeCost(provider, result.model, result.usage, prices);
+    const cost = computeCost(provider, result.model, result.usage, prices, {
+      freeTier: settings.freeTier,
+    });
     await ctx.db.insert(usageRecords).values({
       projectId: project.id,
       agentId: agent.id,
@@ -482,7 +524,11 @@ export async function runChat(
     });
     return 'done';
   } catch (err) {
-    if (err instanceof SessionBusyError || err instanceof AgentPausedError) {
+    if (
+      err instanceof SessionBusyError ||
+      err instanceof AgentPausedError ||
+      err instanceof ProviderBusyError
+    ) {
       await ctx.queue.enqueue(
         { kind: 'chat', runId },
         { delayMs: err instanceof AgentPausedError ? 5000 : 1500 },
@@ -584,7 +630,7 @@ export async function executeTask(
       tools: buildTools(ctx, agent),
     });
   } catch (err) {
-    if (err instanceof SessionBusyError) return revert(1500);
+    if (err instanceof SessionBusyError || err instanceof ProviderBusyError) return revert(1500);
     if (err instanceof AgentPausedError) return revert(5000);
     const pErr = err instanceof ProviderError ? err : null;
     const msg = err instanceof Error ? err.message : String(err);
@@ -592,7 +638,9 @@ export async function executeTask(
       await failTask(ctx, task, 'Interrompido pelo usuário.');
     } else if (pErr?.retryable && task.attempts < task.maxAttempts) {
       await ctx.db.update(tasks).set({ status: 'ready', error: msg }).where(eq(tasks.id, taskId));
-      const delayMs = 1000 * 2 ** task.attempts;
+      // Free-tier quotas reset per minute: back off longer on rate limits.
+      const delayMs =
+        pErr.code === 'rate_limit' ? 20_000 * task.attempts : 1000 * 2 ** task.attempts;
       await emitEvent(ctx, {
         type: 'task.retrying',
         projectId: task.projectId,

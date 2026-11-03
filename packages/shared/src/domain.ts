@@ -33,8 +33,105 @@ export const ROLE_ROOM: Record<AgentRole, RoomKind> = {
   coordinator: 'meeting',
 };
 
-export const PROVIDERS = ['anthropic', 'openai', 'demo'] as const;
+export const PROVIDERS = ['anthropic', 'openai', 'groq', 'openrouter', 'ollama', 'demo'] as const;
 export type ProviderId = (typeof PROVIDERS)[number];
+
+/** Providers that can be configured with credentials (everything except the demo simulator). */
+export const CONFIGURABLE_PROVIDERS = [
+  'anthropic',
+  'openai',
+  'groq',
+  'openrouter',
+  'ollama',
+] as const;
+export type ConfigurableProviderId = (typeof CONFIGURABLE_PROVIDERS)[number];
+
+/** Providers reached through the OpenAI-compatible Chat Completions API. */
+export const OPENAI_COMPATIBLE_PROVIDERS = ['groq', 'openrouter', 'ollama'] as const;
+export type OpenAICompatibleProviderId = (typeof OPENAI_COMPATIBLE_PROVIDERS)[number];
+
+export interface ProviderPreset {
+  label: string;
+  /** Default API base URL (OpenAI-compatible providers only). */
+  baseUrl: string | null;
+  /** Whether the base URL may be changed by the user (only local servers). */
+  baseUrlEditable: boolean;
+  requiresApiKey: boolean;
+  keyUrl: string | null;
+  /** Default number of simultaneous runs against this provider (per worker). */
+  defaultConcurrency: number;
+  /** Cap on output tokens per call (protects small free-tier token-per-minute quotas). */
+  maxOutputTokens: number | null;
+  /** Approximate token budget for the history sent per call. */
+  contextBudgetTokens: number | null;
+  /** Default "free tier / no cost" flag. */
+  defaultFree: boolean;
+  description: string;
+}
+
+export const PROVIDER_PRESETS: Record<ConfigurableProviderId, ProviderPreset> = {
+  anthropic: {
+    label: 'Anthropic (Claude)',
+    baseUrl: null,
+    baseUrlEditable: false,
+    requiresApiKey: true,
+    keyUrl: 'https://console.anthropic.com/settings/keys',
+    defaultConcurrency: 4,
+    maxOutputTokens: null,
+    contextBudgetTokens: null,
+    defaultFree: false,
+    description: 'Modelos Claude via SDK oficial da Anthropic. Cobrança por token.',
+  },
+  openai: {
+    label: 'OpenAI (GPT)',
+    baseUrl: null,
+    baseUrlEditable: false,
+    requiresApiKey: true,
+    keyUrl: 'https://platform.openai.com/api-keys',
+    defaultConcurrency: 4,
+    maxOutputTokens: null,
+    contextBudgetTokens: null,
+    defaultFree: false,
+    description: 'Modelos GPT via SDK oficial da OpenAI. Cobrança por token.',
+  },
+  groq: {
+    label: 'Groq',
+    baseUrl: 'https://api.groq.com/openai/v1',
+    baseUrlEditable: false,
+    requiresApiKey: true,
+    keyUrl: 'https://console.groq.com/keys',
+    defaultConcurrency: 1,
+    maxOutputTokens: 1500,
+    contextBudgetTokens: 3500,
+    defaultFree: true,
+    description:
+      'Modelos abertos muito rápidos. Plano gratuito com limites por minuto/dia (ex.: ~30 req/min e alguns milhares de tokens/min). Erros 429 são re-tentados automaticamente.',
+  },
+  openrouter: {
+    label: 'OpenRouter',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    baseUrlEditable: false,
+    requiresApiKey: true,
+    keyUrl: 'https://openrouter.ai/keys',
+    defaultConcurrency: 1,
+    maxOutputTokens: 2000,
+    contextBudgetTokens: 6000,
+    defaultFree: false,
+    description: 'Agregador de modelos. Modelos com sufixo ":free" não têm custo (com limites).',
+  },
+  ollama: {
+    label: 'Ollama (local)',
+    baseUrl: 'http://localhost:11434/v1',
+    baseUrlEditable: true,
+    requiresApiKey: false,
+    keyUrl: null,
+    defaultConcurrency: 1,
+    maxOutputTokens: 1500,
+    contextBudgetTokens: 3000,
+    defaultFree: true,
+    description: 'Modelos rodando na sua máquina. Sem custo; velocidade depende do hardware.',
+  },
+};
 
 export const AGENT_STATUSES = [
   'idle',

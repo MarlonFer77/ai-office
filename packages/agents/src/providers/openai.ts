@@ -9,28 +9,54 @@ import {
   type ProviderAdapter,
 } from '../types.js';
 
+export type OpenAICompatibleId = 'openai' | 'groq' | 'openrouter' | 'ollama';
+
 export interface OpenAIAdapterOptions {
   apiKey: string;
   client?: OpenAI;
   baseURL?: string;
+  /** Which provider this instance talks to (default: openai). */
+  providerId?: OpenAICompatibleId;
+  /** Human label used in error messages. */
+  label?: string;
 }
 
 type ChatMessage = OpenAI.Chat.Completions.ChatCompletionMessageParam;
 
-/** Adapter for the official OpenAI SDK (Chat Completions with streaming). */
+/** Server-specific usage block (Groq historically reports usage under `x_groq`). */
+interface CompatChunkExtras {
+  x_groq?: { usage?: { prompt_tokens?: number; completion_tokens?: number } };
+}
+
+/**
+ * Adapter for the official OpenAI SDK (Chat Completions with streaming).
+ * Also serves OpenAI-compatible servers (Groq, OpenRouter, Ollama) by pointing
+ * the same SDK at their base URL, with small compatibility adjustments:
+ * - non-OpenAI servers receive the widely supported `max_tokens` parameter;
+ * - usage is read from `usage` or Groq's `x_groq.usage`;
+ * - if a model rejects tool definitions, the call is retried once without tools.
+ */
 export class OpenAIAdapter implements ProviderAdapter {
-  readonly id = 'openai' as const;
+  readonly id: OpenAICompatibleId;
   readonly demo = false;
   private readonly client: OpenAI;
+  private readonly label: string;
 
   constructor(opts: OpenAIAdapterOptions) {
+    this.id = opts.providerId ?? 'openai';
+    this.label = opts.label ?? 'OpenAI';
     this.client =
       opts.client ??
       new OpenAI({
         apiKey: opts.apiKey,
-        maxRetries: 1,
+        // Free tiers rate-limit aggressively; the SDK honours Retry-After.
+        maxRetries: this.id === 'openai' ? 1 : 3,
         ...(opts.baseURL ? { baseURL: opts.baseURL } : {}),
       });
+  }
+
+  private tokenLimit(max: number) {
+    return this.id === 'openai' ? { max_completion_tokens: max } : { max_tokens: max };
   }
 
   async generate(req: GenerateRequest): Promise<GenerateResult> {
@@ -38,7 +64,7 @@ export class OpenAIAdapter implements ProviderAdapter {
       ...(req.system ? [{ role: 'system' as const, content: req.system }] : []),
       ...req.messages.map((m) => ({ role: m.role, content: m.content }) as ChatMessage),
     ];
-    const tools: OpenAI.Chat.Completions.ChatCompletionTool[] | undefined = req.tools?.length
+    let tools: OpenAI.Chat.Completions.ChatCompletionTool[] | undefined = req.tools?.length
       ? req.tools.map((t) => ({
           type: 'function' as const,
           function: { name: t.name, description: t.description, parameters: t.inputSchema },
@@ -52,26 +78,50 @@ export class OpenAIAdapter implements ProviderAdapter {
 
     try {
       for (let iteration = 0; ; iteration++) {
-        const stream = await this.client.chat.completions.create(
-          {
-            model: req.model,
-            messages,
-            max_completion_tokens: req.maxOutputTokens,
-            stream: true,
-            stream_options: { include_usage: true },
-            ...(tools ? { tools } : {}),
-          },
-          { signal: req.signal },
-        );
+        const create = () =>
+          this.client.chat.completions.create(
+            {
+              model: req.model,
+              messages,
+              ...this.tokenLimit(req.maxOutputTokens),
+              stream: true,
+              stream_options: { include_usage: true },
+              ...(tools ? { tools } : {}),
+            },
+            { signal: req.signal },
+          );
+        let stream: Awaited<ReturnType<typeof create>>;
+        try {
+          stream = await create();
+        } catch (err) {
+          // Some open models served by compatible APIs do not support tools.
+          if (
+            tools &&
+            this.id !== 'openai' &&
+            err instanceof OpenAI.BadRequestError &&
+            /tool/i.test(err.message)
+          ) {
+            tools = undefined;
+            stream = await create();
+          } else {
+            throw err;
+          }
+        }
         let text = '';
         const calls = new Map<number, { id: string; name: string; args: string }>();
         for await (const chunk of stream) {
           if (chunk.model) model = chunk.model;
+          const groqUsage = (chunk as typeof chunk & CompatChunkExtras).x_groq?.usage;
           if (chunk.usage) {
             usage = addUsage(usage, {
               inputTokens: chunk.usage.prompt_tokens,
               outputTokens: chunk.usage.completion_tokens,
               cacheReadTokens: chunk.usage.prompt_tokens_details?.cached_tokens ?? 0,
+            });
+          } else if (groqUsage) {
+            usage = addUsage(usage, {
+              inputTokens: groqUsage.prompt_tokens ?? 0,
+              outputTokens: groqUsage.completion_tokens ?? 0,
             });
           }
           const choice = chunk.choices[0];
@@ -91,7 +141,7 @@ export class OpenAIAdapter implements ProviderAdapter {
           }
         }
         finalText += text;
-        if (stopReason !== 'tool_calls' || calls.size === 0 || !req.tools) break;
+        if (stopReason !== 'tool_calls' || calls.size === 0 || !req.tools || !tools) break;
         if (iteration + 1 >= maxIterations) {
           finalText += '\n\n[Limite de chamadas de ferramenta atingido nesta execução.]';
           break;
@@ -142,7 +192,7 @@ export class OpenAIAdapter implements ProviderAdapter {
         if (finalText) finalText += '\n\n';
       }
     } catch (err) {
-      throw normalizeOpenAIError(err);
+      throw normalizeOpenAIError(err, this.label);
     }
     return { text: finalText.trim(), usage, stopReason, model, demo: false };
   }
@@ -153,7 +203,7 @@ export class OpenAIAdapter implements ProviderAdapter {
       for await (const m of this.client.models.list()) out.push({ id: m.id, displayName: m.id });
       return out.sort((a, b) => a.id.localeCompare(b.id));
     } catch (err) {
-      throw normalizeOpenAIError(err);
+      throw normalizeOpenAIError(err, this.label);
     }
   }
 
@@ -169,12 +219,12 @@ export class OpenAIAdapter implements ProviderAdapter {
   }
 }
 
-export function normalizeOpenAIError(err: unknown): ProviderError {
+export function normalizeOpenAIError(err: unknown, label = 'OpenAI'): ProviderError {
   if (err instanceof ProviderError) return err;
   if (err instanceof OpenAI.APIUserAbortError)
     return new ProviderError('aborted', 'Execução interrompida.', false);
   if (err instanceof OpenAI.APIConnectionError)
-    return new ProviderError('unavailable', 'Falha de conexão com a OpenAI.', true);
+    return new ProviderError('unavailable', `Falha de conexão com ${label}.`, true);
   if (err instanceof OpenAI.APIError)
     return errorFromStatus(err.status, truncate(err.message, 300));
   if (err instanceof Error && err.name === 'AbortError')
